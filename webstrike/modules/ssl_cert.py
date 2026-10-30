@@ -65,12 +65,12 @@ class SSLCertificateHealth(Module):
             except Exception:
                 pass
 
-        issuer_dict = dict(x[0] for x in cert.get("issuer", []))
-        subject_dict = dict(x[0] for x in cert.get("subject", []))
+        issuer_dict = dict(kv for rdn in cert.get("issuer", ()) for kv in rdn if len(kv) == 2)
+        subject_dict = dict(kv for rdn in cert.get("subject", ()) for kv in rdn if len(kv) == 2)
         issuer_org = issuer_dict.get("organizationName") or issuer_dict.get("commonName") or "Unknown Issuer"
         subject_cn = subject_dict.get("commonName") or hostname
 
-        is_self_signed = (issuer_dict.get("commonName") == subject_dict.get("commonName")) and (issuer_dict.get("organizationName") == subject_dict.get("organizationName"))
+        is_self_signed = bool(cert.get("issuer")) and (cert.get("issuer") == cert.get("subject"))
 
         if is_self_signed:
             yield Finding(

@@ -142,7 +142,9 @@ async function renderUpdateStatus(forceRefresh) {
     if (ver.update_available) {
       html += '<div style="margin-top:8px;color:#4dd4ac;font-weight:700;">★ New update available: v' + esc(ver.latest) + '</div>';
       if (ver.notes) html += '<div style="font-size:12px;color:#e7edf7;">' + esc(ver.notes) + '</div>';
-      if (ver.download) html += '<div style="margin-top:6px;"><a href="' + esc(ver.download) + '" target="_blank" style="color:#22d3ee;">Download latest update →</a></div>';
+      if (ver.download && /^https?:\/\//i.test(ver.download)) {
+        html += '<div style="margin-top:6px;"><a href="' + esc(ver.download) + '" target="_blank" rel="noopener" style="color:#22d3ee;">Download latest update →</a></div>';
+      }
     } else {
       html += '<div style="margin-top:8px;color:#4dd4ac;">✓ You are running the latest version.</div>';
     }
@@ -277,7 +279,7 @@ async function loadVersion() {
     if (ub && v.update_available) {
       ub.style.display = 'inline-block';
       ub.textContent = 'Update v' + v.latest;
-      if (v.download) ub.href = v.download;
+      if (v.download && /^https?:\/\//i.test(v.download)) ub.href = v.download;
     }
   } catch (e) {}
 }
@@ -375,21 +377,26 @@ async function loadHistory() {
 
 async function loadPast(sid, target) {
   reset();
-  setStatus('done');
   let rows = [];
   let surfStats = null;
+  let pastStatus = 'done';
+  let pastElapsed = 0;
   try {
     const res = await fetch('/api/scan/' + sid);
     if (res.ok) {
       const scanData = await res.json();
       rows = scanData.findings || [];
       surfStats = scanData.surface || null;
+      if (scanData.status) pastStatus = scanData.status;
+      if (scanData.elapsed) pastElapsed = scanData.elapsed;
     } else {
       rows = await (await fetch('/api/scan/' + sid + '/findings')).json();
     }
   } catch (e) {
     rows = await (await fetch('/api/scan/' + sid + '/findings')).json();
   }
+  setStatus(pastStatus);
+  if (pastElapsed) setText('#s-time', pastElapsed + 's');
   state.findings = rows;
   state.surfaceStats = surfStats;
   state.newFps = new Set();

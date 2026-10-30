@@ -23,12 +23,14 @@ class GeoHostingIntel(Module):
             ipaddress.ip_address(host)
             ip = host
         except ValueError:
-            try:
-                ans = await asyncio.to_thread(dns.resolver.resolve, host, "A", lifetime=4)
-                if ans:
-                    ip = str(ans[0])
-            except Exception:
-                pass
+            for rtype in ("A", "AAAA"):
+                try:
+                    ans = await asyncio.to_thread(dns.resolver.resolve, host, rtype, lifetime=4)
+                    if ans:
+                        ip = str(ans[0])
+                        break
+                except Exception:
+                    pass
 
         if not ip:
             return

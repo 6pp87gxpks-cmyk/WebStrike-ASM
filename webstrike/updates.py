@@ -35,13 +35,15 @@ async def check_for_update(force: bool = False) -> Dict:
         return result
     now = time.time()
     if not force and _CACHE["data"] and now - _CACHE["ts"] < CACHE_SECONDS:
-        return _CACHE["data"]
+        return dict(_CACHE["data"])
     try:
         import httpx
         async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as c:
             r = await c.get(url, headers={"Accept": "application/json"})
             r.raise_for_status()
             info = r.json()
+        if not isinstance(info, dict):
+            raise ValueError("Invalid update metadata")
         # Support both custom version.json AND GitHub Releases API (/repos/<owner>/<repo>/releases/latest)
         raw_ver = info.get("version") or info.get("tag_name") or ""
         latest: Optional[str] = str(raw_ver).lstrip("vV") or None

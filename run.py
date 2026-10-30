@@ -11,7 +11,8 @@ def main():
     a = p.parse_args()
     if a.cmd == "scan":
         from webstrike.cli import run_cli
-        run_cli(a.target, a.profile, a.modules.split(",") if a.modules else None)
+        mods = [m.strip() for m in a.modules.split(",") if m.strip()] if a.modules else None
+        run_cli(a.target, a.profile, mods or None)
     else:
         import uvicorn
         host = getattr(a, "host", "127.0.0.1"); port = getattr(a, "port", 8777)

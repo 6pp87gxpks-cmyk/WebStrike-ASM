@@ -43,8 +43,8 @@ def generate_executive_report_html(
     # OWASP Breakdown
     owasp_counts = {}
     for f in findings:
-        cat = f.get("category", "")
-        title = f.get("title", "")
+        cat = str(f.get("category") or "")
+        title = str(f.get("title") or "")
         code, name = get_owasp_tag(cat, title)
         key = f"{code}: {name}"
         owasp_counts[key] = owasp_counts.get(key, 0) + 1
@@ -58,15 +58,17 @@ def generate_executive_report_html(
 
     # Findings rows
     SEV_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
-    sorted_findings = sorted(findings, key=lambda x: SEV_ORDER.get(str(x.get("severity", "")).lower(), 9))
+    sorted_findings = sorted(findings, key=lambda x: SEV_ORDER.get(str(x.get("severity") or "").lower(), 9))
 
     findings_html = ""
     for idx, f in enumerate(sorted_findings, start=1):
-        sev = str(f.get("severity", "info")).lower()
-        title = f.get("title", "Untitled finding")
-        cat = f.get("category", "general")
-        loc = f.get("url") or f.get("target") or target
-        ev = f.get("evidence", "")
+        sev = str(f.get("severity") or "info").lower()
+        if sev not in SEV_ORDER:
+            sev = "info"
+        title = str(f.get("title") or "Untitled finding")
+        cat = str(f.get("category") or "general")
+        loc = str(f.get("url") or f.get("target") or target or "")
+        ev = str(f.get("evidence") or "")
         owasp_code, owasp_name = get_owasp_tag(cat, title)
         rem = get_remediation(cat, title)
 

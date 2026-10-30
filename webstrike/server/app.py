@@ -1,5 +1,5 @@
 from __future__ import annotations
-import asyncio, json, pathlib, shutil, time, uuid
+import asyncio, json, pathlib, re, shutil, time, uuid
 from contextlib import asynccontextmanager
 from typing import Optional, List, Dict
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from ..config import Options
 from ..engine import Engine
-from ..store import Store, DATA_DIR
+from ..store import Store, DATA_DIR, fingerprint
 from ..remediation import get_remediation
 from ..report import generate_executive_report_html
 from ..scope import DEFAULT_SCOPE, target_host, normalize_list, host_in_scope
@@ -97,7 +97,7 @@ async def _load_scan_findings(sid: str):
     if s:
         e = s["engine"]
         if e.findings:
-            return [f.to_dict() if hasattr(f, "to_dict") else f for f in e.findings]
+            return [{**(f.to_dict() if hasattr(f, "to_dict") else f), "fp": fingerprint(f)} for f in e.findings]
     if store:
         return await store.load_findings(sid)
     return []
@@ -191,6 +191,12 @@ async def restore_backup(payload: Dict):
     if not isinstance(payload, dict) or ("scans" not in payload and "scope" not in payload):
         raise HTTPException(status_code=400, detail="Invalid backup JSON format")
     res = await store.restore_backup(payload)
+    for sc in (payload.get("scans") if isinstance(payload.get("scans"), list) else []):
+        if isinstance(sc, dict) and sc.get("id") in SCANS:
+            s_entry = SCANS[sc["id"]]
+            task = s_entry.get("task")
+            if not task or task.done():
+                SCANS.pop(sc["id"], None)
     return {"status": "restored", **res}
 
 @app.post("/api/update/pull")
@@ -206,21 +212,30 @@ async def stop_scan(sid: str):
     eng = s["engine"]
     if task and not task.done():
         task.cancel()
-    eng.status = "stopped"
+        eng.status = "stopped"
+        try:
+            await asyncio.wait_for(asyncio.shield(task), timeout=2.0)
+        except (asyncio.CancelledError, asyncio.TimeoutError, Exception):
+            pass
+    else:
+        eng.status = "stopped"
     return {"status": "stopped", "id": sid}
 
 @app.delete("/api/scan/{sid}")
 async def delete_scan(sid: str):
     if not store:
         raise HTTPException(status_code=500, detail="Database not ready")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", sid):
+        raise HTTPException(status_code=400, detail="Invalid scan ID")
     if sid in SCANS:
         s = SCANS[sid]
         task = s.get("task")
         if task and not task.done():
             task.cancel()
         del SCANS[sid]
-    scan_art_dir = DATA_DIR / "artifacts" / sid
-    if scan_art_dir.exists() and scan_art_dir.is_dir():
+    art_base = (DATA_DIR / "artifacts").resolve()
+    scan_art_dir = (art_base / sid).resolve()
+    if scan_art_dir.parent == art_base and scan_art_dir.exists() and scan_art_dir.is_dir():
         shutil.rmtree(scan_art_dir, ignore_errors=True)
     ok = await store.delete_scan(sid)
     if not ok:
@@ -232,15 +247,22 @@ async def get_scan(sid: str):
     s = SCANS.get(sid)
     if s:
         e = s["engine"]
+        elapsed = round(time.time() - e.started, 1)
         return {"id": sid, "status": e.status, "target": e.target, "profile": e.opt.profile,
-                "findings": [{**f.to_dict()} for f in e.findings], "surface": e.surface_stats()}
+                "elapsed": elapsed,
+                "findings": [{**f.to_dict(), "fp": fingerprint(f)} for f in e.findings],
+                "surface": e.surface_stats()}
     if store:
         scans = await store.list_scans()
         scan = next((s for s in scans if s["id"] == sid), None)
         if scan:
             findings = await store.load_findings(sid)
+            started = scan.get("started") or 0.0
+            finished = scan.get("finished") or 0.0
+            elapsed = max(0.0, round(finished - started, 1)) if (started and finished) else 0.0
             return {"id": sid, "status": scan["status"], "target": scan["target"],
-                    "profile": scan["profile"], "findings": findings, "surface": scan["stats"]}
+                    "profile": scan["profile"], "elapsed": elapsed,
+                    "findings": findings, "surface": scan["stats"]}
     return JSONResponse({"error": "not found"}, 404)
 
 @app.get("/api/scan/{sid}/report", response_class=HTMLResponse)

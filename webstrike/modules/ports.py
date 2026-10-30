@@ -64,11 +64,12 @@ class PortScanner(Module):
             open_ports.append(port)
             svc_name, sev, desc = COMMON_SERVICES.get(port, ("Unknown", Severity.INFO, "Open TCP port"))
 
-            target_label = f"{host}:{port}"
+            host_fmt = f"[{host}]" if ":" in host and not host.startswith("[") else host
+            target_label = f"{host_fmt}:{port}"
             ctx.remember("hosts", target_label)
             if port in (80, 443, 8000, 8080, 8443, 8888, 3000):
                 scheme = "https" if port in (443, 8443) else "http"
-                ctx.remember("urls", f"{scheme}://{host}:{port}")
+                ctx.remember("urls", f"{scheme}://{host_fmt}:{port}")
 
             yield Finding(
                 self.id,
