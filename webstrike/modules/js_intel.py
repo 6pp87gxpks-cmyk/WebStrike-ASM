@@ -35,10 +35,13 @@ class JSIntel(Module):
                 yield Finding(self.id, "Sourcemap reference", Severity.MEDIUM, category="js",
                               url=s, evidence="source map exposed -> source recoverable")
                 sm = js.text.split("sourceMappingURL=")[-1].strip().split()[0].strip("*/ ").strip()
-                smr = await ctx.http.probe(urljoin(s, sm))
-                if smr and smr.status_code == 200:
-                    yield Finding(self.id, "Sourcemap reachable", Severity.HIGH, category="js",
-                                  url=urljoin(s, sm))
+                if sm and not sm.startswith("data:"):
+                    smr = await ctx.http.probe(urljoin(s, sm))
+                    if smr and smr.status_code == 200:
+                        ct = smr.headers.get("content-type", "").lower()
+                        if "text/html" not in ct and smr.text.lstrip().startswith("{"):
+                            yield Finding(self.id, "Sourcemap reachable", Severity.HIGH, category="js",
+                                          url=urljoin(s, sm))
         for ep in sorted(endpoints):
             ctx.remember("endpoints", ep)
         yield Finding(self.id, f"{len(scripts)} scripts, {len(endpoints)} endpoints", Severity.INFO,

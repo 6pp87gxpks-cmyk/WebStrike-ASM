@@ -21,8 +21,20 @@ class Context:
 
     @property
     def base_url(self):
-        raw = self.state.get("base_url") or (
-            self.target if self.target.startswith("http") else "https://" + self.target)
+        raw = self.state.get("base_url")
+        if not raw:
+            t = self.target.strip()
+            if t.lower().startswith(("http://", "https://")):
+                raw = t
+            else:
+                host = self.domain
+                if ":" in host and not host.startswith("["):
+                    raw = f"https://[{host}]"
+                else:
+                    raw = "https://" + t
+        parsed = urlparse(raw)
+        if parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}"
         return raw.rstrip("/")
 
     @property
@@ -48,19 +60,32 @@ class Engine:
         self.findings = []
         self.state = {"urls": set(), "subdomains": set(), "endpoints": set(), "hosts": set(),
                       "domain": self._domain_of(target), "base_url": None}
+        if target.strip().lower().startswith(("http://", "https://")):
+            self.state["urls"].add(target.strip())
         self.status = "pending"
         self.started = time.time()
 
     @staticmethod
     def _domain_of(target):
-        t = target if "://" in target else "//" + target
-        parsed = urlparse(t)
-        return parsed.hostname or target.split("@", 1)[-1].split("/")[0].split(":")[0]
+        t = (target or "").strip()
+        try:
+            return str(ipaddress.ip_address(t.strip("[]"))).lower()
+        except ValueError:
+            pass
+        if not t.lower().startswith(("http://", "https://")) and "://" not in t:
+            t = "//" + t
+        try:
+            parsed = urlparse(t)
+            if parsed.hostname:
+                return parsed.hostname.lower()
+        except ValueError:
+            pass
+        return t.split("@", 1)[-1].split("/")[0].split(":")[0].lower()
 
     @staticmethod
     def _is_ip(host: str) -> bool:
         try:
-            ipaddress.ip_address(host)
+            ipaddress.ip_address(host.strip("[]"))
             return True
         except ValueError:
             return False
@@ -68,7 +93,7 @@ class Engine:
     @classmethod
     def detect_kind(cls, target: str) -> str:
         t = target.strip()
-        if t.startswith(("http://", "https://")):
+        if t.lower().startswith(("http://", "https://")):
             return "url"
         host = cls._domain_of(t)
         if cls._is_ip(host):
@@ -107,10 +132,11 @@ class Engine:
     async def run(self):
         self.status = "running"
         await self.emit("scan_start", target=self.target, profile=self.opt.profile)
-        http = HttpClient(self.opt)
-        ctx = Context(self.target, self.kind, self.opt, http, self.state,
-                      self._log, self.scan_id, self.data_dir)
+        http = None
         try:
+            http = HttpClient(self.opt)
+            ctx = Context(self.target, self.kind, self.opt, http, self.state,
+                          self._log, self.scan_id, self.data_dir)
             for phase in PHASE_ORDER:
                 mods = [m for m in MODULES.values()
                         if m.phase == phase and self.opt.profile in m.profiles
@@ -141,7 +167,8 @@ class Engine:
         except Exception as e:
             await self.emit("log", message=f"Engine error: {type(e).__name__}: {e}", level="err")
         finally:
-            await http.aclose()
+            if http:
+                await http.aclose()
             if self.status != "stopped":
                 self.status = "done"
             diff = await self._persist_and_diff()

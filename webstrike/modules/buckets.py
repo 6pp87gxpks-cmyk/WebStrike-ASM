@@ -26,15 +26,21 @@ class Buckets(Module):
             for prov_name, tpl in providers:
                 url = tpl.format(c=c)
                 r = await ctx.http.probe(url)
-                if r and r.status_code in (200, 403):
-                    sev = Severity.HIGH if r.status_code == 200 else Severity.MEDIUM
-                    status_text = "publicly listable" if r.status_code == 200 else "exists (403 AccessDenied)"
-                    yield Finding(
-                        self.id,
-                        f"{prov_name}: {c}",
-                        sev,
-                        Confidence.FIRM,
-                        category="cloud",
-                        url=url,
-                        evidence=f"{prov_name} container {status_text} (HTTP {r.status_code})"
-                    )
+                if not r or r.status_code not in (200, 403):
+                    continue
+                body = r.text[:600]
+                if r.status_code == 200 and "<ListBucketResult" not in body and "<EnumerationResults" not in body:
+                    continue
+                if r.status_code == 403 and not any(x in body for x in ("AccessDenied", "AccountRequiresHttps", "AuthorizationFailure", "InvalidResourceName", "<?xml")):
+                    continue
+                sev = Severity.HIGH if r.status_code == 200 else Severity.MEDIUM
+                status_text = "publicly listable" if r.status_code == 200 else "exists (403 AccessDenied)"
+                yield Finding(
+                    self.id,
+                    f"{prov_name}: {c}",
+                    sev,
+                    Confidence.FIRM,
+                    category="cloud",
+                    url=url,
+                    evidence=f"{prov_name} container {status_text} (HTTP {r.status_code})"
+                )

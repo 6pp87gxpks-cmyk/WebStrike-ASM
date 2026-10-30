@@ -21,15 +21,18 @@ class HttpClient:
             auth = (u, p)
         if opt.bearer:
             headers["Authorization"] = f"Bearer {opt.bearer}"
-        proxy = opt.proxy or None
+        proxy = (opt.proxy or "").strip() or None
+        if proxy and "://" not in proxy:
+            proxy = "http://" + proxy
+        conc = max(1, int(opt.concurrency or 30))
         self._c = httpx.AsyncClient(
             headers=headers, cookies=opt.cookies, auth=auth,
             proxy=proxy, verify=opt.verify_tls, timeout=opt.timeout,
-            follow_redirects=True, limits=httpx.Limits(max_connections=opt.concurrency * 2),
+            follow_redirects=True, limits=httpx.Limits(max_connections=conc * 2),
         )
-        self.limiter = RateLimiter(opt.rate)
-        self.retries = opt.retries
-        self.sem = asyncio.Semaphore(opt.concurrency)
+        self.limiter = RateLimiter(max(0.0, float(opt.rate or 0.0)))
+        self.retries = max(0, int(opt.retries))
+        self.sem = asyncio.Semaphore(conc)
 
     async def get(self, url, **kw):
         return await self.request("GET", url, **kw)

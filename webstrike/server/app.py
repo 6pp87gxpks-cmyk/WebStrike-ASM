@@ -120,11 +120,14 @@ async def start_scan(req: ScanReq):
                 )
     sid = uuid.uuid4().hex[:8]
     kind = Engine.detect_kind(t)
-    opt = Options(profile=req.profile, only_modules=req.only_modules,
+    profile = req.profile if req.profile in ("passive", "balanced", "danger") else "balanced"
+    concurrency = max(1, min(200, int(req.concurrency or 30)))
+    rate = max(0.0, float(req.rate or 0.0))
+    opt = Options(profile=profile, only_modules=req.only_modules,
                   cookies=req.cookies or {}, headers=req.headers or {},
                   bearer=req.bearer, basic=req.basic, proxy=req.proxy,
                   webhook_url=req.webhook,
-                  concurrency=req.concurrency, rate=req.rate)
+                  concurrency=concurrency, rate=rate)
     eng = Engine(sid, t, kind, opt, store=store)
     task = asyncio.create_task(eng.run())
     SCANS[sid] = {"engine": eng, "task": task}

@@ -36,9 +36,19 @@ $$('#sevchips button').forEach((b) => {
 });
 
 on($('#search'), 'input', render);
-on($('#exp-report'), 'click', () => state.id && window.open('/api/scan/' + state.id + '/report'));
-on($('#exp-json'), 'click', () => state.id && window.open('/api/scan/' + state.id + '/export?fmt=json'));
-on($('#exp-md'), 'click', () => state.id && window.open('/api/scan/' + state.id + '/export?fmt=md'));
+on($('#target'), 'keydown', (e) => { if (e.key === 'Enter') launch(); });
+on($('#exp-report'), 'click', () => {
+  if (!state.id) { alert('Run a scan or select a past scan from History first.'); return; }
+  window.open('/api/scan/' + state.id + '/report');
+});
+on($('#exp-json'), 'click', () => {
+  if (!state.id) { alert('Run a scan or select a past scan from History first.'); return; }
+  window.open('/api/scan/' + state.id + '/export?fmt=json');
+});
+on($('#exp-md'), 'click', () => {
+  if (!state.id) { alert('Run a scan or select a past scan from History first.'); return; }
+  window.open('/api/scan/' + state.id + '/export?fmt=md');
+});
 on($('#launch'), 'click', launch);
 on($('#stop-btn'), 'click', async () => {
   if (!state.id) return;

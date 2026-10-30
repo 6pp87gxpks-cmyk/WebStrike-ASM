@@ -14,6 +14,10 @@ def target_host(target: str) -> str:
     t = (target or "").strip()
     if not t:
         return ""
+    try:
+        return str(ipaddress.ip_address(t.strip("[]"))).lower()
+    except ValueError:
+        pass
     if "://" not in t:
         t = "http://" + t
     try:
