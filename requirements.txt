@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+httpx
+dnspython
+python-whois
+beautifulsoup4
+aiosqlite
+rich
+eval_type_backport
+playwright>=1.40

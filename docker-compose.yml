@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  webstrike:
+    build: .
+    image: webstrike:latest
+    container_name: webstrike
+    restart: unless-stopped
+    ports:
+      - "8777:8777"
+    volumes:
+      - ./scans:/app/scans
+    environment:
+      - PYTHONUNBUFFERED=1

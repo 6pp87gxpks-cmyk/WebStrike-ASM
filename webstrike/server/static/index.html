@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>WebStrike - Attack Surface Engine</title>
+<link rel="stylesheet" href="/static/style.css?v=20261030_08"/>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">WS</div>
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <h1>WebStrike</h1>
+          <span id="app-ver" class="ver-badge">v1.1.0</span>
+          <a id="update-badge" href="#" target="_blank" class="ver-update" style="display:none;" title="New update available!">Update!</a>
+        </div>
+        <span class="sub">attack surface engine</span>
+      </div>
+    </div>
+    <label class="field"><span>Target</span>
+      <input id="target" placeholder="https://app.example.com" autocomplete="off"/></label>
+    <div class="field"><span>Profile</span>
+      <div class="segmented" id="profile">
+        <button data-v="passive">Passive</button>
+        <button data-v="balanced" class="active">Balanced</button>
+        <button data-v="danger">Danger</button>
+      </div>
+    </div>
+    <details class="adv">
+      <summary>Auth &amp; Network</summary>
+      <label class="field"><span>Bearer token</span><input id="bearer" placeholder="eyJ..."/></label>
+      <label class="field"><span>Basic user:pass</span><input id="basic" placeholder="admin:secret"/></label>
+      <label class="field"><span>Cookies (JSON)</span><input id="cookies" placeholder='{"session":"abc"}'/></label>
+      <label class="field"><span>Headers (JSON)</span><input id="headers" placeholder='{"X-Env":"staging"}'/></label>
+      <label class="field"><span>Discord / Slack Webhook</span><input id="webhook" placeholder="https://discord.com/api/webhooks/..."/></label>
+      <label class="field"><span>Proxy</span><input id="proxy" placeholder="http://127.0.0.1:8080"/></label>
+      <div class="row">
+        <label class="field"><span>Concurrency</span><input id="conc" type="number" value="30"/></label>
+        <label class="field"><span>Rate/s</span><input id="rate" type="number" value="0"/></label>
+      </div>
+    </details>
+    <label class="auth-check" title="Confirm you own or have permission to test this target">
+      <input type="checkbox" id="auth-confirm" checked/>
+      <span>I have authorization to test this target</span>
+    </label>
+    <button id="launch" class="launch">Launch scan</button>
+    <div class="modules-head">Modules <span id="modcount"></span></div>
+    <div id="modules" class="modules"></div>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <div class="target-line">
+        <span id="tgt" class="tgt">no target</span>
+        <span id="status" class="pill idle">idle</span>
+        <button id="stop-btn" class="ghost danger" style="display:none; padding:4px 10px; font-size:12px; margin-left:8px;">Stop Scan</button>
+      </div>
+      <div class="actions">
+        <button id="exp-report" class="ghost highlight">Executive Report</button>
+        <button id="exp-json" class="ghost">JSON</button>
+        <button id="exp-md" class="ghost">Markdown</button>
+        <button id="scope-btn" class="ghost" title="Configure Allowed Target Scope" onclick="openScopeModal()">Scope</button>
+        <button id="upd-btn" class="ghost" title="Version, Updates &amp; Backup" onclick="openUpdatesModal()">Updates &amp; Backup</button>
+      </div>
+    </header>
+    <section class="stats">
+      <div class="stat"><b id="s-find">0</b><span>findings</span></div>
+      <div class="stat crit"><b id="s-crit">0</b><span>critical/high</span></div>
+      <div class="stat"><b id="s-sub">0</b><span>hosts/ports</span></div>
+      <div class="stat"><b id="s-ep">0</b><span>endpoints</span></div>
+      <div class="stat"><b id="s-url">0</b><span>urls</span></div>
+      <div class="stat"><b id="s-time">0s</b><span>elapsed</span></div>
+    </section>
+    <nav class="tabs">
+      <button data-tab="findings" class="active">Findings</button>
+      <button data-tab="surface">Attack Surface</button>
+      <button data-tab="graph">Attack Graph</button>
+      <button data-tab="endpoints">Endpoints</button>
+      <button data-tab="screens">Screens</button>
+      <button data-tab="history">History</button>
+      <button data-tab="log">Live Log</button>
+    </nav>
+    <section class="panels">
+      <div class="panel active" id="tab-findings">
+        <div class="filters">
+          <input id="search" placeholder="Filter findings..."/>
+          <div class="chips" id="sevchips">
+            <button data-s="critical" class="crit">critical</button>
+            <button data-s="high" class="high">high</button>
+            <button data-s="medium" class="med">medium</button>
+            <button data-s="low" class="low">low</button>
+            <button data-s="info" class="info">info</button>
+          </div>
+        </div>
+        <div id="findings" class="findings"></div>
+      </div>
+      <div class="panel" id="tab-surface">
+        <div id="infra-banner" class="infra-banner" style="display:none;"></div>
+        <div id="surface" class="surface"></div>
+      </div>
+      <div class="panel" id="tab-graph">
+        <div class="graph-legend">
+          <span><span class="dot target"></span> Target</span>
+          <span><span class="dot host"></span> Hosts &amp; Ports</span>
+          <span><span class="dot ep"></span> Endpoints</span>
+          <span><span class="dot crit"></span> High / Critical</span>
+        </div>
+        <div id="graph-container" class="graph-container"></div>
+      </div>
+      <div class="panel" id="tab-endpoints"><div id="endpoints" class="findings"></div></div>
+      <div class="panel" id="tab-screens"><div id="screens" class="gallery"></div></div>
+      <div class="panel" id="tab-history"><div id="history" class="findings"></div></div>
+      <div class="panel" id="tab-log"><div id="log" class="log"></div></div>
+    </section>
+  </main>
+</div>
+
+<div id="scope-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(5,7,13,0.85); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); z-index:999999; align-items:center; justify-content:center;">
+  <div class="modal-card" style="background:#0c111d; border:1px solid #1a2334; border-radius:14px; width:90%; max-width:460px; padding:24px; box-shadow:0 20px 40px rgba(0,0,0,0.7); position:relative; z-index:1000000;">
+    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h3 style="font-size:15px; font-weight:700; color:#e7edf7; margin:0;">Authorized Target Scope Allowlist</h3>
+      <button type="button" class="modal-close" onclick="closeScopeModal()" style="background:transparent; border:0; color:#7d8ca6; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+    </div>
+    <p style="font-size:12px; color:#7d8ca6; margin-bottom:14px;">Restrict scanning strictly to approved domains, subdomains, or IP/CIDR ranges to prevent accidental out-of-scope testing.</p>
+    <form id="scope-form" onsubmit="handleScopeSubmit(event)">
+      <label class="auth-check" style="margin-bottom:14px;">
+        <input type="checkbox" id="scope-enforce"/>
+        <span>Enforce Scope Allowlist (block targets not listed below)</span>
+      </label>
+      <label class="field" style="display:block; margin-bottom:14px;">
+        <span style="display:block; font-size:11px; color:#7d8ca6; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">Allowed Domains / IPs (one per line)</span>
+        <textarea id="scope-domains" rows="6" placeholder="example.com&#10;*.staging.internal&#10;192.168.1.0/24" style="width:100%; background:#0a101c; border:1px solid #1a2334; color:#e7edf7; padding:10px 12px; border-radius:9px; font-size:12.5px; font-family:ui-monospace,monospace; outline:none; resize:vertical;"></textarea>
+      </label>
+      <div id="scope-msg" style="display:none; padding:9px 12px; border-radius:8px; font-size:12px; margin-bottom:12px;"></div>
+      <div class="modal-actions" style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
+        <button type="button" class="ghost" onclick="closeScopeModal()">Cancel</button>
+        <button type="submit" class="launch" style="width:auto; padding:8px 16px;">Save Scope</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="upd-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(5,7,13,0.85); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); z-index:999999; align-items:center; justify-content:center;">
+  <div class="modal-card" style="background:#0c111d; border:1px solid #1a2334; border-radius:14px; width:90%; max-width:500px; padding:24px; box-shadow:0 20px 40px rgba(0,0,0,0.7); position:relative; z-index:1000000;">
+    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h3 style="font-size:15px; font-weight:700; color:#e7edf7; margin:0;">System Updates &amp; Data Backup</h3>
+      <button type="button" class="modal-close" onclick="closeUpdatesModal()" style="background:transparent; border:0; color:#7d8ca6; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+    </div>
+    <div id="upd-status-box" style="background:#0a101c; border:1px solid #1a2334; border-radius:10px; padding:14px; margin-bottom:12px; font-size:12.5px; line-height:1.6;"></div>
+    <div id="upd-action-msg" style="display:none; padding:9px 12px; border-radius:8px; font-size:12px; margin-bottom:12px; white-space:pre-wrap;"></div>
+    <input type="file" id="backup-file" accept=".json,application/json" style="display:none;" onchange="handleBackupRestore(event)"/>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+      <button type="button" class="ghost" onclick="window.open('/api/backup')">Download Backup (.json)</button>
+      <button type="button" class="ghost" id="restore-backup-btn" onclick="document.getElementById('backup-file').click()">Restore Backup (.json)</button>
+      <button type="button" class="ghost" id="git-pull-btn" onclick="applyGitUpdate()">Install Update (git pull)</button>
+    </div>
+    <div style="display:flex; justify-content:flex-end; align-items:center; gap:8px; padding-top:12px; border-top:1px solid #1a2334;">
+      <button type="button" class="ghost" onclick="closeUpdatesModal()">Close</button>
+      <button type="button" class="launch" style="width:auto; padding:8px 16px;" onclick="checkUpdatesNow()">Check for Updates</button>
+    </div>
+  </div>
+</div>
+
+<div id="diff-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(5,7,13,0.85); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); z-index:999999; align-items:center; justify-content:center;">
+  <div class="modal-card" style="background:#0c111d; border:1px solid #1a2334; border-radius:14px; width:92%; max-width:720px; max-height:85vh; display:flex; flex-direction:column; padding:24px; box-shadow:0 20px 40px rgba(0,0,0,0.7); position:relative; z-index:1000000;">
+    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h3 id="diff-title" style="font-size:15px; font-weight:700; color:#e7edf7; margin:0;">Scan Comparison</h3>
+      <button type="button" class="modal-close" onclick="closeDiffModal()" style="background:transparent; border:0; color:#7d8ca6; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+    </div>
+    <div id="diff-body" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:10px;"></div>
+  </div>
+</div>
+
+<script src="/static/app.js?v=20261030_09"></script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+# Python & Virtual Environment
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local Scan Database & Screenshots (User Data)
+scans/*.db
+scans/*.db-*
+scans/*.db.bak*
+scans/artifacts/
+
+# OS & Build Artifacts
+.DS_Store
+dist/
+*.log
+apply_fixes.sh
+Read this.txt
