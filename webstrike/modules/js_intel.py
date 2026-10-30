@@ -1,5 +1,5 @@
 import re
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 from ..registry import register, Phase
 from ..models import Finding, Severity
 from .base import Module
@@ -17,8 +17,12 @@ class JSIntel(Module):
         r = await ctx.http.probe(base)
         if not r:
             return
-        scripts = {urljoin(base, s) for s in SCRIPT_RE.findall(r.text)}
-        scripts |= {u for u in ctx.state.get("urls", set()) if u.endswith(".js")}
+        page_url = str(r.url)
+        scripts = {urljoin(page_url, s) for s in SCRIPT_RE.findall(r.text)}
+        scripts |= {
+            u for u in ctx.state.get("urls", set())
+            if urlparse(str(u)).path.lower().endswith(".js")
+        }
         ctx.remember("urls", *scripts)
         endpoints = set()
         for s in sorted(scripts)[:60]:

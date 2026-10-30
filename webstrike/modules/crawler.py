@@ -58,6 +58,16 @@ class Crawler(Module):
                     if clean_url not in visited and len(visited) + len(queue) < self.MAX_PAGES:
                         queue.append(clean_url)
 
+            # 1b. Discover scripts on crawled pages for JSIntel & Secrets modules
+            for st in soup.find_all("script", src=True):
+                src = (st.get("src") or "").strip()
+                if not src or src.startswith(("data:", "javascript:")):
+                    continue
+                full_script = urljoin(current_url, src)
+                sp = urlparse(full_script)
+                if sp.hostname and (sp.hostname.lower() == domain or sp.hostname.lower().endswith("." + domain)):
+                    ctx.remember("urls", full_script)
+
             # 2. Discover forms
             curr_path = urlparse(current_url).path or "/"
             for form in soup.find_all("form"):

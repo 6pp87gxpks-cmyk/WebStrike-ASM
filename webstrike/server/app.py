@@ -262,12 +262,16 @@ async def scan_report(sid: str):
         findings = await store.load_findings(sid)
         scans = await store.list_scans()
         scan = next((sc for sc in scans if sc["id"] == sid), None)
+        if not scan and not findings:
+            return HTMLResponse(content="<h1>404 — Scan not found</h1>", status_code=404)
         if scan:
             target = scan.get("target", sid)
             profile = scan.get("profile", "balanced")
             surface = scan.get("stats", {})
             started = scan.get("started", 0.0)
             elapsed = round(scan.get("finished", 0.0) - started, 1) if scan.get("finished") else 0.0
+    else:
+        return HTMLResponse(content="<h1>404 — Scan not found</h1>", status_code=404)
 
     report_html = generate_executive_report_html(
         target=target,
@@ -332,7 +336,7 @@ async def ws(ws: WebSocket, sid: str):
     try:
         for ev in list(eng.history):
             await ws.send_text(json.dumps(ev))
-        if any(ev.get("kind") == "scan_done" for ev in eng.history) or eng.status == "done":
+        if any(ev.get("kind") == "scan_done" for ev in eng.history) or eng.status in ("done", "stopped"):
             return
         while True:
             ev = await q.get()

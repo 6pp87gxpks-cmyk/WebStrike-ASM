@@ -417,8 +417,26 @@ async function launch() {
     authorized: authChk ? Boolean(authChk.checked) : true
   };
   const ck = $('#cookies'), hd = $('#headers');
-  try { body.cookies = ck && ck.value ? JSON.parse(ck.value) : null; } catch (e) {}
-  try { body.headers = hd && hd.value ? JSON.parse(hd.value) : null; } catch (e) {}
+  if (ck && ck.value.trim()) {
+    try {
+      const parsedCk = JSON.parse(ck.value);
+      if (!parsedCk || typeof parsedCk !== 'object' || Array.isArray(parsedCk)) throw new Error('must be object');
+      body.cookies = parsedCk;
+    } catch (e) {
+      alert('Cookies must be a valid JSON object, e.g. {"session": "abc"}');
+      return;
+    }
+  }
+  if (hd && hd.value.trim()) {
+    try {
+      const parsedHd = JSON.parse(hd.value);
+      if (!parsedHd || typeof parsedHd !== 'object' || Array.isArray(parsedHd)) throw new Error('must be object');
+      body.headers = parsedHd;
+    } catch (e) {
+      alert('Headers must be a valid JSON object, e.g. {"X-Env": "staging"}');
+      return;
+    }
+  }
 
   reset();
   try {
@@ -428,7 +446,7 @@ async function launch() {
     });
     const r = await resp.json();
     if (!resp.ok) {
-      const msg = r.detail || 'Scan blocked';
+      const msg = typeof r.detail === 'string' ? r.detail : JSON.stringify(r.detail || 'Scan blocked');
       logLine(msg, 'err');
       alert(msg);
       return;
