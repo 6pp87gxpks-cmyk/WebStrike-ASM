@@ -1,10 +1,10 @@
 #!/bin/zsh
-# WebStrike 1-Click Launcher for macOS and Linux
+# WebStrike 1-Click Launcher for macOS
 set -e
 cd "$(dirname "$0")"
 
 echo "=================================================="
-echo "  WebStrike — Attack Surface Engine (macOS/Linux)       "
+echo "  WebStrike — Attack Surface Engine (macOS)       "
 echo "=================================================="
 
 if [ ! -x ".venv/bin/python" ]; then

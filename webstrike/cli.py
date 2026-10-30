@@ -1,21 +1,35 @@
-import asyncio, uuid
+import asyncio
+import uuid
+
 from rich.console import Console
 from rich.markup import escape
+
 from .config import Options
 from .engine import Engine
 from .store import Store
 
 console = Console()
-COLOR = {"critical": "red", "high": "orange3", "medium": "yellow",
-         "low": "green", "info": "dim"}
+COLOR = {
+    "critical": "red",
+    "high": "orange3",
+    "medium": "yellow",
+    "low": "green",
+    "info": "dim",
+}
+
 
 def run_cli(target, profile, only=None):
     sid = uuid.uuid4().hex[:8]
 
     async def main():
         store = await Store().connect()
-        eng = Engine(sid, target, Engine.detect_kind(target),
-                     Options(profile=profile, only_modules=only), store=store)
+        eng = Engine(
+            sid,
+            target,
+            Engine.detect_kind(target),
+            Options(profile=profile, only_modules=only),
+            store=store,
+        )
         q = eng.subscribe()
         task = asyncio.create_task(eng.run())
         try:
@@ -33,25 +47,26 @@ def run_cli(target, profile, only=None):
                         break
                     continue
 
-                k = ev.get("kind")
-                if k == "finding":
+                kind = ev.get("kind")
+                if kind == "finding":
                     f = ev["finding"]
                     sev = str(f.get("severity", "info"))
-                    console.print("[" + COLOR.get(sev, "white") + "]" + escape(sev.upper()) +
-                                  "[/] " + escape(str(f.get("title", ""))) + " [dim]" +
-                                  escape(str(f.get("url") or f.get("target") or "")) + "[/]")
-                elif k == "module_error":
-                    console.print("[red]x " + escape(str(ev.get("module", ""))) + "[/]: " + escape(str(ev.get("error", ""))))
-                elif k == "module_start":
-                    console.print("[dim]> " + escape(str(ev.get("name", ""))) + "[/]")
-                elif k == "scan_diff" and ev.get("new"):
-                    console.print("[bold yellow]delta " + str(ev["new"]) + " new vs " +
-                                  escape(str(ev["prev"])) + ", " + str(ev["resolved"]) + " resolved[/]")
-                elif k == "log":
-                    console.print("[dim]" + escape(str(ev.get("message", ""))) + "[/]")
-                elif k == "scan_done":
-                    console.print("\n[bold green]done[/] " + str(ev["total"]) +
-                                  " findings in " + str(ev["elapsed"]) + "s")
+                    color = COLOR.get(sev, "white")
+                    loc = escape(str(f.get("url") or f.get("target") or ""))
+                    console.print(f"[{color}]{escape(sev.upper())}[/] {escape(str(f.get('title', '')))} [dim]{loc}[/]")
+                elif kind == "module_error":
+                    console.print(f"[red]x {escape(str(ev.get('module', '')))}[/]: {escape(str(ev.get('error', '')))}")
+                elif kind == "module_start":
+                    console.print(f"[dim]> {escape(str(ev.get('name', '')))}[/]")
+                elif kind == "scan_diff" and ev.get("new"):
+                    console.print(
+                        f"[bold yellow]delta {ev['new']} new vs {escape(str(ev['prev']))}, "
+                        f"{ev['resolved']} resolved[/]"
+                    )
+                elif kind == "log":
+                    console.print(f"[dim]{escape(str(ev.get('message', '')))}[/]")
+                elif kind == "scan_done":
+                    console.print(f"\n[bold green]done[/] {ev['total']} findings in {ev['elapsed']}s")
                     break
         finally:
             if not task.done():

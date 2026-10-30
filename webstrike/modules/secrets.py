@@ -1,23 +1,30 @@
 import re
 from urllib.parse import urljoin
-from ..registry import register, Phase
-from ..models import Finding, Severity, Confidence
+
+from ..models import Confidence, Finding, Severity
+from ..registry import Phase, register
 from ..wordlists import SECRET_PATTERNS
 from .base import Module
 
 SKIP_CT = ("image/", "font/", "octet-stream", "video/", "audio/", "wasm")
 
+
 @register
 class Secrets(Module):
-    id = "secrets"; name = "Secret Scanning"; phase = Phase.ENRICH
-    profiles = {"balanced", "danger"}; kinds = {"domain", "url"}
+    id = "secrets"
+    name = "Secret Scanning"
+    phase = Phase.ENRICH
+    profiles = {"balanced", "danger"}
+    kinds = {"domain", "url"}
 
     async def run(self, ctx):
         candidates = set(ctx.state.get("urls", set()))
         for ep in ctx.state.get("endpoints", set()):
             s = str(ep)
             candidates.add(s if s.startswith("http") else urljoin(ctx.base_url, s))
-        seen_urls, seen_keys = set(), set()
+
+        seen_urls = set()
+        seen_keys = set()
         for url in sorted(candidates)[:150]:
             if url in seen_urls:
                 continue
@@ -38,5 +45,12 @@ class Secrets(Module):
                     if key in seen_keys:
                         continue
                     seen_keys.add(key)
-                    yield Finding(self.id, f"Secret: {name}", Severity.HIGH, Confidence.TENTATIVE,
-                                  category="secrets", url=url, evidence=val)
+                    yield Finding(
+                        self.id,
+                        f"Secret: {name}",
+                        Severity.HIGH,
+                        Confidence.TENTATIVE,
+                        category="secrets",
+                        url=url,
+                        evidence=val,
+                    )

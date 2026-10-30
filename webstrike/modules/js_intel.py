@@ -1,16 +1,21 @@
 import re
 from urllib.parse import urljoin, urlparse
-from ..registry import register, Phase
+
 from ..models import Finding, Severity
+from ..registry import Phase, register
 from .base import Module
 
 SCRIPT_RE = re.compile(r"""<script[^>]+src=["']([^"']+)["']""", re.I)
 ENDPOINT_RE = re.compile(r"""["'](/[a-zA-Z0-9_\-./]{2,}(?:\?[^"']*)?)["']""")
 
+
 @register
 class JSIntel(Module):
-    id = "js"; name = "JavaScript Intelligence"; phase = Phase.ANALYSIS
-    profiles = {"balanced", "danger"}; kinds = {"domain", "url"}
+    id = "js"
+    name = "JavaScript Intelligence"
+    phase = Phase.ANALYSIS
+    profiles = {"balanced", "danger"}
+    kinds = {"domain", "url"}
 
     async def run(self, ctx):
         base = ctx.base_url
@@ -32,19 +37,41 @@ class JSIntel(Module):
             for ep in ENDPOINT_RE.findall(js.text):
                 endpoints.add(ep)
             if "sourceMappingURL=" in js.text:
-                yield Finding(self.id, "Sourcemap reference", Severity.MEDIUM, category="js",
-                              url=s, evidence="source map exposed -> source recoverable")
+                yield Finding(
+                    self.id,
+                    "Sourcemap reference",
+                    Severity.MEDIUM,
+                    category="js",
+                    url=s,
+                    evidence="source map exposed -> source recoverable",
+                )
                 sm = js.text.split("sourceMappingURL=")[-1].strip().split()[0].strip("*/ ").strip()
                 if sm and not sm.startswith("data:"):
                     smr = await ctx.http.probe(urljoin(s, sm))
                     if smr and smr.status_code == 200:
                         ct = smr.headers.get("content-type", "").lower()
                         if "text/html" not in ct and smr.text.lstrip().startswith("{"):
-                            yield Finding(self.id, "Sourcemap reachable", Severity.HIGH, category="js",
-                                          url=urljoin(s, sm))
+                            yield Finding(
+                                self.id,
+                                "Sourcemap reachable",
+                                Severity.HIGH,
+                                category="js",
+                                url=urljoin(s, sm),
+                            )
         for ep in sorted(endpoints):
             ctx.remember("endpoints", ep)
-        yield Finding(self.id, f"{len(scripts)} scripts, {len(endpoints)} endpoints", Severity.INFO,
-                      category="js", evidence="JS analysis complete")
+        yield Finding(
+            self.id,
+            f"{len(scripts)} scripts, {len(endpoints)} endpoints",
+            Severity.INFO,
+            category="js",
+            evidence="JS analysis complete",
+        )
         for ep in sorted(endpoints)[:200]:
-            yield Finding(self.id, f"Endpoint: {ep}", Severity.LOW, category="endpoints", evidence=ep)
+            yield Finding(
+                self.id,
+                f"Endpoint: {ep}",
+                Severity.LOW,
+                category="endpoints",
+                evidence=ep,
+            )

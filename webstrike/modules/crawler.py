@@ -1,11 +1,12 @@
 from __future__ import annotations
-import asyncio
+
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 
-from ..registry import register, Phase
-from ..models import Finding, Severity, Confidence
+from ..models import Confidence, Finding, Severity
+from ..registry import Phase, register
 from .base import Module
+
 
 @register
 class Crawler(Module):
@@ -43,14 +44,16 @@ class Crawler(Module):
             except Exception:
                 continue
 
-            # 1. Discover links
             for tag in soup.find_all("a", href=True):
                 href = tag.get("href", "").strip()
                 if not href or href.startswith(("javascript:", "mailto:", "tel:", "#")):
                     continue
                 full_url = urljoin(current_url, href)
                 parsed = urlparse(full_url)
-                if parsed.hostname and (parsed.hostname.lower() == domain or parsed.hostname.lower().endswith("." + domain)):
+                if parsed.hostname and (
+                    parsed.hostname.lower() == domain
+                    or parsed.hostname.lower().endswith("." + domain)
+                ):
                     clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
                     full_with_query = f"{clean_url}?{parsed.query}" if parsed.query else clean_url
                     ctx.remember("urls", full_with_query)
@@ -58,17 +61,18 @@ class Crawler(Module):
                     if clean_url not in visited and len(visited) + len(queue) < self.MAX_PAGES:
                         queue.append(clean_url)
 
-            # 1b. Discover scripts on crawled pages for JSIntel & Secrets modules
             for st in soup.find_all("script", src=True):
                 src = (st.get("src") or "").strip()
                 if not src or src.startswith(("data:", "javascript:")):
                     continue
                 full_script = urljoin(current_url, src)
                 sp = urlparse(full_script)
-                if sp.hostname and (sp.hostname.lower() == domain or sp.hostname.lower().endswith("." + domain)):
+                if sp.hostname and (
+                    sp.hostname.lower() == domain
+                    or sp.hostname.lower().endswith("." + domain)
+                ):
                     ctx.remember("urls", full_script)
 
-            # 2. Discover forms
             curr_path = urlparse(current_url).path or "/"
             for form in soup.find_all("form"):
                 action = form.get("action", "") or curr_path
@@ -113,7 +117,7 @@ class Crawler(Module):
                         Confidence.CERTAIN,
                         category="surface",
                         url=full_action,
-                        evidence=f"Method: {method} | Inputs: {inputs_desc}"
+                        evidence=f"Method: {method} | Inputs: {inputs_desc}",
                     )
                 elif has_password:
                     sev = Severity.HIGH if full_action.startswith("http://") else Severity.LOW
@@ -124,7 +128,7 @@ class Crawler(Module):
                         Confidence.CERTAIN,
                         category="surface",
                         url=full_action,
-                        evidence=f"Method: {method} | Password input present | Inputs: {inputs_desc}"
+                        evidence=f"Method: {method} | Password input present | Inputs: {inputs_desc}",
                     )
                 elif form_count <= 8:
                     yield Finding(
@@ -134,7 +138,7 @@ class Crawler(Module):
                         Confidence.CERTAIN,
                         category="surface",
                         url=full_action,
-                        evidence=f"Inputs: {inputs_desc}"
+                        evidence=f"Inputs: {inputs_desc}",
                     )
 
         yield Finding(
@@ -143,5 +147,5 @@ class Crawler(Module):
             Severity.INFO,
             category="surface",
             url=base,
-            evidence=f"Visited {len(visited)} internal endpoints"
+            evidence=f"Visited {len(visited)} internal endpoints",
         )

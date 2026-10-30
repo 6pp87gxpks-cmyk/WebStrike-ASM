@@ -4,7 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>WebStrike - Attack Surface Engine</title>
-<link rel="stylesheet" href="/static/style.css?v=20261030_08"/>
+<link rel="stylesheet" href="/static/style.css?v=20261030_14"/>
 </head>
 <body>
 <div class="app">
@@ -12,7 +12,7 @@
     <div class="brand">
       <div class="logo">WS</div>
       <div>
-        <div style="display:flex;align-items:center;gap:8px;">
+        <div class="brand-row">
           <h1>WebStrike</h1>
           <span id="app-ver" class="ver-badge">v1.1.0</span>
           <a id="update-badge" href="#" target="_blank" class="ver-update" style="display:none;" title="New update available!">Update!</a>
@@ -21,7 +21,8 @@
       </div>
     </div>
     <label class="field"><span>Target</span>
-      <input id="target" placeholder="https://app.example.com" autocomplete="off"/></label>
+      <input id="target" placeholder="https://app.example.com" autocomplete="off"/>
+    </label>
     <div class="field"><span>Profile</span>
       <div class="segmented" id="profile">
         <button data-v="passive">Passive</button>
@@ -50,6 +51,7 @@
     <div class="modules-head">Modules <span id="modcount"></span></div>
     <div id="modules" class="modules"></div>
   </aside>
+
   <main class="main">
     <header class="topbar">
       <div class="target-line">
@@ -63,9 +65,10 @@
         <button id="exp-md" class="ghost">Markdown</button>
         <button id="scope-btn" class="ghost" title="Configure Allowed Target Scope" onclick="openScopeModal()">Scope</button>
         <button id="upd-btn" class="ghost" title="Version, Updates &amp; Backup" onclick="openUpdatesModal()">Updates &amp; Backup</button>
-        <a id="feedback-btn" class="ghost" href="https://github.com/6pp87gxpks-cmyk/WebStrike-ASM/issues/new/choose" target="_blank" rel="noopener" title="Report a Bug or Request a Feature on GitHub" style="text-decoration:none;">Report Bug</a>
+        <a id="feedback-btn" class="ghost" href="https://github.com/6pp87gxpks-cmyk/WebStrike-ASM/issues/new/choose" target="_blank" rel="noopener" title="Report a Bug or Request a Feature on GitHub">Report Bug</a>
       </div>
     </header>
+
     <section class="stats">
       <div class="stat"><b id="s-find">0</b><span>findings</span></div>
       <div class="stat crit"><b id="s-crit">0</b><span>critical/high</span></div>
@@ -74,6 +77,7 @@
       <div class="stat"><b id="s-url">0</b><span>urls</span></div>
       <div class="stat"><b id="s-time">0s</b><span>elapsed</span></div>
     </section>
+
     <nav class="tabs">
       <button data-tab="findings" class="active">Findings</button>
       <button data-tab="surface">Attack Surface</button>
@@ -83,6 +87,7 @@
       <button data-tab="history">History</button>
       <button data-tab="log">Live Log</button>
     </nav>
+
     <section class="panels">
       <div class="panel active" id="tab-findings">
         <div class="filters">
@@ -97,10 +102,12 @@
         </div>
         <div id="findings" class="findings"></div>
       </div>
+
       <div class="panel" id="tab-surface">
         <div id="infra-banner" class="infra-banner" style="display:none;"></div>
         <div id="surface" class="surface"></div>
       </div>
+
       <div class="panel" id="tab-graph">
         <div class="graph-legend">
           <span><span class="dot target"></span> Target</span>
@@ -110,6 +117,7 @@
         </div>
         <div id="graph-container" class="graph-container"></div>
       </div>
+
       <div class="panel" id="tab-endpoints"><div id="endpoints" class="findings"></div></div>
       <div class="panel" id="tab-screens"><div id="screens" class="gallery"></div></div>
       <div class="panel" id="tab-history"><div id="history" class="findings"></div></div>
@@ -118,24 +126,24 @@
   </main>
 </div>
 
-<div id="scope-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(5,7,13,0.85); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); z-index:999999; align-items:center; justify-content:center;">
-  <div class="modal-card" style="background:#0c111d; border:1px solid #1a2334; border-radius:14px; width:90%; max-width:460px; padding:24px; box-shadow:0 20px 40px rgba(0,0,0,0.7); position:relative; z-index:1000000;">
-    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-      <h3 style="font-size:15px; font-weight:700; color:#e7edf7; margin:0;">Authorized Target Scope Allowlist</h3>
-      <button type="button" class="modal-close" onclick="closeScopeModal()" style="background:transparent; border:0; color:#7d8ca6; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+<div id="scope-modal" class="modal-overlay" style="display:none;">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>Authorized Target Scope Allowlist</h3>
+      <button type="button" class="modal-close" onclick="closeScopeModal()">&times;</button>
     </div>
-    <p style="font-size:12px; color:#7d8ca6; margin-bottom:14px;">Restrict scanning strictly to approved domains, subdomains, or IP/CIDR ranges to prevent accidental out-of-scope testing.</p>
+    <p class="modal-desc">Restrict scanning strictly to approved domains, subdomains, or IP/CIDR ranges to prevent accidental out-of-scope testing.</p>
     <form id="scope-form" onsubmit="handleScopeSubmit(event)">
-      <label class="auth-check" style="margin-bottom:14px;">
+      <label class="auth-check">
         <input type="checkbox" id="scope-enforce"/>
         <span>Enforce Scope Allowlist (block targets not listed below)</span>
       </label>
-      <label class="field" style="display:block; margin-bottom:14px;">
-        <span style="display:block; font-size:11px; color:#7d8ca6; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">Allowed Domains / IPs (one per line)</span>
-        <textarea id="scope-domains" rows="6" placeholder="example.com&#10;*.staging.internal&#10;192.168.1.0/24" style="width:100%; background:#0a101c; border:1px solid #1a2334; color:#e7edf7; padding:10px 12px; border-radius:9px; font-size:12.5px; font-family:ui-monospace,monospace; outline:none; resize:vertical;"></textarea>
+      <label class="field">
+        <span>Allowed Domains / IPs (one per line)</span>
+        <textarea id="scope-domains" rows="6" placeholder="example.com&#10;*.staging.internal&#10;192.168.1.0/24"></textarea>
       </label>
-      <div id="scope-msg" style="display:none; padding:9px 12px; border-radius:8px; font-size:12px; margin-bottom:12px;"></div>
-      <div class="modal-actions" style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
+      <div id="scope-msg" class="modal-msg" style="display:none;"></div>
+      <div class="modal-actions">
         <button type="button" class="ghost" onclick="closeScopeModal()">Cancel</button>
         <button type="submit" class="launch" style="width:auto; padding:8px 16px;">Save Scope</button>
       </div>
@@ -143,37 +151,37 @@
   </div>
 </div>
 
-<div id="upd-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(5,7,13,0.85); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); z-index:999999; align-items:center; justify-content:center;">
-  <div class="modal-card" style="background:#0c111d; border:1px solid #1a2334; border-radius:14px; width:90%; max-width:500px; padding:24px; box-shadow:0 20px 40px rgba(0,0,0,0.7); position:relative; z-index:1000000;">
-    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-      <h3 style="font-size:15px; font-weight:700; color:#e7edf7; margin:0;">System Updates &amp; Data Backup</h3>
-      <button type="button" class="modal-close" onclick="closeUpdatesModal()" style="background:transparent; border:0; color:#7d8ca6; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+<div id="upd-modal" class="modal-overlay" style="display:none;">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>System Updates &amp; Data Backup</h3>
+      <button type="button" class="modal-close" onclick="closeUpdatesModal()">&times;</button>
     </div>
-    <div id="upd-status-box" style="background:#0a101c; border:1px solid #1a2334; border-radius:10px; padding:14px; margin-bottom:12px; font-size:12.5px; line-height:1.6;"></div>
-    <div id="upd-action-msg" style="display:none; padding:9px 12px; border-radius:8px; font-size:12px; margin-bottom:12px; white-space:pre-wrap;"></div>
+    <div id="upd-status-box" class="modal-status-box"></div>
+    <div id="upd-action-msg" class="modal-msg" style="display:none;"></div>
     <input type="file" id="backup-file" accept=".json,application/json" style="display:none;" onchange="handleBackupRestore(event)"/>
-    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+    <div class="modal-btn-row">
       <button type="button" class="ghost" onclick="window.open('/api/backup')">Download Backup (.json)</button>
       <button type="button" class="ghost" id="restore-backup-btn" onclick="document.getElementById('backup-file').click()">Restore Backup (.json)</button>
       <button type="button" class="ghost" id="git-pull-btn" onclick="applyGitUpdate()">Install Update (git pull)</button>
     </div>
-    <div style="display:flex; justify-content:flex-end; align-items:center; gap:8px; padding-top:12px; border-top:1px solid #1a2334;">
+    <div class="modal-actions bordered">
       <button type="button" class="ghost" onclick="closeUpdatesModal()">Close</button>
       <button type="button" class="launch" style="width:auto; padding:8px 16px;" onclick="checkUpdatesNow()">Check for Updates</button>
     </div>
   </div>
 </div>
 
-<div id="diff-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(5,7,13,0.85); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); z-index:999999; align-items:center; justify-content:center;">
-  <div class="modal-card" style="background:#0c111d; border:1px solid #1a2334; border-radius:14px; width:92%; max-width:720px; max-height:85vh; display:flex; flex-direction:column; padding:24px; box-shadow:0 20px 40px rgba(0,0,0,0.7); position:relative; z-index:1000000;">
-    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-      <h3 id="diff-title" style="font-size:15px; font-weight:700; color:#e7edf7; margin:0;">Scan Comparison</h3>
-      <button type="button" class="modal-close" onclick="closeDiffModal()" style="background:transparent; border:0; color:#7d8ca6; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+<div id="diff-modal" class="modal-overlay" style="display:none;">
+  <div class="modal-card wide">
+    <div class="modal-header">
+      <h3 id="diff-title">Scan Comparison</h3>
+      <button type="button" class="modal-close" onclick="closeDiffModal()">&times;</button>
     </div>
-    <div id="diff-body" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:10px;"></div>
+    <div id="diff-body" class="diff-body"></div>
   </div>
 </div>
 
-<script src="/static/app.js?v=20261030_13"></script>
+<script src="/static/app.js?v=20261030_14"></script>
 </body>
 </html>

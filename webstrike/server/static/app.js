@@ -70,7 +70,6 @@ window.addEventListener('click', (e) => {
   if (e.target === $('#diff-modal')) closeDiffModal();
 });
 
-// ---- Scope Allowlist Modal ----
 async function openScopeModal() {
   const modal = $('#scope-modal');
   if (!modal) return;
@@ -127,7 +126,6 @@ async function handleScopeSubmit(e) {
   }
 }
 
-// ---- Updates & Backup Modal ----
 async function renderUpdateStatus(forceRefresh) {
   const box = $('#upd-status-box');
   if (!box) return;
@@ -220,7 +218,6 @@ async function handleBackupRestore(ev) {
   }
 }
 
-// ---- Scan Comparison / Diff Modal ----
 async function openDiffModal(scanId, otherId, label) {
   const modal = $('#diff-modal');
   const body = $('#diff-body');

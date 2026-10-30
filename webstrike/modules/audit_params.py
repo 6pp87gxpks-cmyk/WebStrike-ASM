@@ -1,13 +1,26 @@
 from __future__ import annotations
-import asyncio
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
-from ..registry import register, Phase
-from ..models import Finding, Severity, Confidence
+
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+
+from ..models import Confidence, Finding, Severity
+from ..registry import Phase, register
 from .base import Module
 
 REDIRECT_PARAMS = {
-    "url", "redirect", "redirect_to", "next", "dest", "destination",
-    "return", "return_to", "target", "r", "goto", "link", "out", "view"
+    "url",
+    "redirect",
+    "redirect_to",
+    "next",
+    "dest",
+    "destination",
+    "return",
+    "return_to",
+    "target",
+    "r",
+    "goto",
+    "link",
+    "out",
+    "view",
 }
 
 SQL_ERRORS = [
@@ -22,6 +35,7 @@ SQL_ERRORS = [
     ("SQLite", "unrecognized token:"),
 ]
 
+
 @register
 class AuditParams(Module):
     id = "audit"
@@ -31,14 +45,14 @@ class AuditParams(Module):
     kinds = {"domain", "url"}
 
     async def run(self, ctx):
-        candidate_urls = set()
-        for u in ctx.state.get("urls", set()):
-            if "?" in str(u):
-                candidate_urls.add(str(u))
+        candidate_urls = {str(u) for u in ctx.state.get("urls", set()) if "?" in str(u)}
 
-        # Check HTTP to HTTPS enforcement
         if ctx.base_url.startswith("https://"):
-            dom_fmt = f"[{ctx.domain}]" if ":" in ctx.domain and not ctx.domain.startswith("[") else ctx.domain
+            dom_fmt = (
+                f"[{ctx.domain}]"
+                if ":" in ctx.domain and not ctx.domain.startswith("[")
+                else ctx.domain
+            )
             http_url = "http://" + dom_fmt
             r_http = await ctx.http.probe(http_url, follow_redirects=False)
             if r_http and r_http.status_code == 200:
@@ -49,7 +63,7 @@ class AuditParams(Module):
                     Confidence.CERTAIN,
                     category="crypto",
                     url=http_url,
-                    evidence="HTTP port 80 does not enforce redirect to HTTPS (HSTS disabled or missing redirect)"
+                    evidence="HTTP port 80 does not enforce redirect to HTTPS (HSTS disabled or missing redirect)",
                 )
 
         if not candidate_urls:
@@ -60,18 +74,19 @@ class AuditParams(Module):
             p = urlparse(raw_url)
             qs = parse_qs(p.query)
 
-            for param, vals in qs.items():
+            for param in qs:
                 param_key = (p.path, param.lower())
                 if param_key in tested_params:
                     continue
                 tested_params.add(param_key)
 
-                # 1. Open Redirect Check
                 if param.lower() in REDIRECT_PARAMS:
                     canary_target = "https://example.com"
                     q_mod = dict(qs)
                     q_mod[param] = [canary_target]
-                    test_url = urlunparse((p.scheme, p.netloc, p.path, p.params, urlencode(q_mod, doseq=True), p.fragment))
+                    test_url = urlunparse(
+                        (p.scheme, p.netloc, p.path, p.params, urlencode(q_mod, doseq=True), p.fragment)
+                    )
                     r_redir = await ctx.http.probe(test_url, follow_redirects=False)
                     if r_redir and r_redir.status_code in (301, 302, 303, 307, 308):
                         loc = r_redir.headers.get("location", "").strip()
@@ -84,14 +99,15 @@ class AuditParams(Module):
                                 Confidence.CERTAIN,
                                 category="vuln",
                                 url=raw_url,
-                                evidence=f"Target redirected to external host via Location: {loc}"
+                                evidence=f"Target redirected to external host via Location: {loc}",
                             )
 
-                # 2. Reflected Input & Raw Characters Check
                 canary_probe = f"ws{ctx.scan_id[:4]}<wstest>'\""
                 q_mod = dict(qs)
                 q_mod[param] = [canary_probe]
-                test_url = urlunparse((p.scheme, p.netloc, p.path, p.params, urlencode(q_mod, doseq=True), p.fragment))
+                test_url = urlunparse(
+                    (p.scheme, p.netloc, p.path, p.params, urlencode(q_mod, doseq=True), p.fragment)
+                )
                 r_ref = await ctx.http.probe(test_url)
                 if r_ref and r_ref.status_code == 200:
                     ct = r_ref.headers.get("content-type", "").lower()
@@ -103,13 +119,14 @@ class AuditParams(Module):
                             Confidence.FIRM,
                             category="vuln",
                             url=raw_url,
-                            evidence=f"Parameter value reflected unescaped with HTML brackets (<wstest>') in HTTP response"
+                            evidence="Parameter value reflected unescaped with HTML brackets (<wstest>') in HTTP response",
                         )
 
-                # 3. Database Error Leakage Probe (SQLi Canary)
                 q_mod = dict(qs)
                 q_mod[param] = ["1'"]
-                test_url = urlunparse((p.scheme, p.netloc, p.path, p.params, urlencode(q_mod, doseq=True), p.fragment))
+                test_url = urlunparse(
+                    (p.scheme, p.netloc, p.path, p.params, urlencode(q_mod, doseq=True), p.fragment)
+                )
                 r_sql = await ctx.http.probe(test_url)
                 if r_sql:
                     body_lower = r_sql.text.lower()
@@ -122,6 +139,6 @@ class AuditParams(Module):
                                 Confidence.CERTAIN,
                                 category="vuln",
                                 url=raw_url,
-                                evidence=f"Leaked syntax error string '{err_sig}' when injecting single quote in ?{param}="
+                                evidence=f"Leaked syntax error string '{err_sig}' when injecting single quote in ?{param}=",
                             )
                             break

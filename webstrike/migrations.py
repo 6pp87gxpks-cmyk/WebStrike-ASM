@@ -1,16 +1,5 @@
-"""Versioned database migrations.
-
-Each migration runs exactly once, in order. The current schema version is stored
-in SQLite's built-in ``PRAGMA user_version``. Before any migration is applied to an
-existing database, a backup copy of the database file is written next to it, so a
-customer's data can always be restored if an update goes wrong.
-
-RULES for adding a migration (future updates):
-  * Append a new entry to MIGRATIONS with the next version number.
-  * Never edit or reorder an existing migration once it has been released.
-  * Prefer additive changes (new tables / new columns with defaults).
-"""
 from __future__ import annotations
+
 import shutil
 import time
 from pathlib import Path
@@ -18,8 +7,6 @@ from typing import Callable, List, Tuple, Union
 
 Step = Union[str, Callable]
 
-# Version 1 is the original WebStrike schema. All statements are idempotent so that
-# databases created before the migration system existed are adopted safely.
 _V1_BASE = """
 CREATE TABLE IF NOT EXISTS scans (
     id TEXT PRIMARY KEY, target TEXT, profile TEXT, status TEXT,
@@ -41,7 +28,6 @@ CREATE INDEX IF NOT EXISTS idx_scans_target ON scans(target);
 CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
 """
 
-# Version 2: generic key/value settings (scope allowlist, instance options, ...).
 _V2_SETTINGS = """
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY, value TEXT, updated_at REAL
@@ -76,13 +62,13 @@ def backup_db(db_path: Path, from_version: int) -> Path:
 
 
 async def migrate(db, db_path: Path) -> List[str]:
-    """Bring the database up to LATEST_VERSION. Returns a log of applied steps."""
     applied: List[str] = []
     current = await get_version(db)
     if current > LATEST_VERSION:
         raise RuntimeError(
             f"Database schema v{current} is newer than this WebStrike build "
-            f"(supports up to v{LATEST_VERSION}). Please update WebStrike.")
+            f"(supports up to v{LATEST_VERSION}). Please update WebStrike."
+        )
     pending = [m for m in MIGRATIONS if m[0] > current]
     if not pending:
         return applied

@@ -1,15 +1,36 @@
 from __future__ import annotations
-import time, uuid
-from dataclasses import dataclass, field, asdict
+
+import time
+import uuid
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 
+_SEV_RANK = {
+    "critical": 0,
+    "high": 1,
+    "medium": 2,
+    "low": 3,
+    "info": 4,
+}
+
+
 class Severity(str, Enum):
-    CRITICAL = "critical"; HIGH = "high"; MEDIUM = "medium"; LOW = "low"; INFO = "info"
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    INFO = "info"
+
     @property
-    def rank(self): return {"critical":0,"high":1,"medium":2,"low":3,"info":4}[self.value]
+    def rank(self) -> int:
+        return _SEV_RANK[self.value]
+
 
 class Confidence(str, Enum):
-    CERTAIN = "certain"; FIRM = "firm"; TENTATIVE = "tentative"
+    CERTAIN = "certain"
+    FIRM = "firm"
+    TENTATIVE = "tentative"
+
 
 @dataclass
 class Finding:
@@ -37,8 +58,8 @@ class Finding:
             except ValueError:
                 self.confidence = Confidence.FIRM
 
-    def to_dict(self):
-        d = asdict(self)
-        d["severity"] = self.severity.value if hasattr(self.severity, "value") else str(self.severity)
-        d["confidence"] = self.confidence.value if hasattr(self.confidence, "value") else str(self.confidence)
-        return d
+    def to_dict(self) -> dict:
+        data = asdict(self)
+        data["severity"] = self.severity.value if hasattr(self.severity, "value") else str(self.severity)
+        data["confidence"] = self.confidence.value if hasattr(self.confidence, "value") else str(self.confidence)
+        return data

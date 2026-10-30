@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-import asyncio, threading, uuid, sys
+import asyncio
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import sys
+import threading
+import uuid
+
+from webstrike import modules  # noqa: F401
 from webstrike.config import Options
 from webstrike.engine import Engine
-from webstrike import modules  # noqa: F401
 
 PORT = 8899
 HOME = """<!doctype html><html><head><title>WebStrike TestApp</title></head>
@@ -13,6 +17,7 @@ const KEY = "AKIAIOSFODNN7EXAMPLE";
 fetch("/api/v1/users"); fetch("/internal/debug"); fetch("/graphql");
 //# sourceMappingURL=app.js.map
 """
+
 ROUTES = {
     "/": (200, "text/html", HOME),
     "/app.js": (200, "application/javascript", JS),
@@ -25,24 +30,33 @@ ROUTES = {
     "/admin": (200, "text/html", "<html>admin</html>"),
 }
 
-class H(BaseHTTPRequestHandler):
-    def log_message(self, *a): pass
+
+class Handler(BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
     def _send(self, code, ctype, body):
         b = body.encode()
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(b)))
-        o = self.headers.get("Origin")
-        if o:
-            self.send_header("Access-Control-Allow-Origin", o)
+        origin = self.headers.get("Origin")
+        if origin:
+            self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Access-Control-Allow-Credentials", "true")
         self.end_headers()
         self.wfile.write(b)
+
     def do_GET(self):
-        p = self.path.split("?")[0]
-        if p in ROUTES: self._send(*ROUTES[p])
-        else: self._send(404, "text/plain", "nope")
+        path = self.path.split("?")[0]
+        if path in ROUTES:
+            self._send(*ROUTES[path])
+        else:
+            self._send(404, "text/plain", "nope")
+
     do_HEAD = do_GET
+    do_POST = do_GET
+
 
 CHECKS = [
     ("exposure", lambda fs: any(".env" in f.title for f in fs), "exposed .env"),
@@ -61,33 +75,54 @@ DOMAIN_CASES = {
     "https://example.com/path": "example.com",
 }
 
+
 async def main():
     for target, expected in DOMAIN_CASES.items():
         actual = Engine._domain_of(target)
         if actual != expected:
             raise AssertionError(f"{target!r}: expected {expected!r}, got {actual!r}")
 
-    srv = ThreadingHTTPServer(("127.0.0.1", PORT), H)
+    srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
-    only = ["robots", "fingerprint", "paths", "exposure", "js", "secrets",
-            "graphql", "swagger", "cors"]
+    only = [
+        "robots",
+        "fingerprint",
+        "paths",
+        "exposure",
+        "js",
+        "secrets",
+        "graphql",
+        "swagger",
+        "cors",
+    ]
     opt = Options(profile="danger", only_modules=only, timeout=10)
     eng = Engine(uuid.uuid4().hex[:8], f"http://127.0.0.1:{PORT}", "url", opt)
     await eng.run()
     srv.shutdown()
+
     cats = {}
     for f in eng.findings:
         cats.setdefault(f.category, []).append(f)
-    passed = failed = 0
+
+    passed = 0
+    failed = 0
     for cat, fn, label in CHECKS:
         ok = fn(cats.get(cat, []))
         print(f"  [{'PASS' if ok else 'FAIL'}] {label}")
-        passed += ok; failed += (not ok)
-    print(f"\n{passed} passed, {failed} failed  "
-          f"({len(eng.findings)} findings across {len(cats)} categories)")
-    for e in [e for e in eng.history if e["kind"] == "module_error"]:
-        print(f"  ! module error: {e['module']}: {e['error']}")
+        if ok:
+            passed += 1
+        else:
+            failed += 1
+
+    print(
+        f"\n{passed} passed, {failed} failed  "
+        f"({len(eng.findings)} findings across {len(cats)} categories)"
+    )
+    for ev in eng.history:
+        if ev.get("kind") == "module_error":
+            print(f"  ! module error: {ev['module']}: {ev['error']}")
     return 1 if failed else 0
+
 
 if __name__ == "__main__":
     sys.exit(asyncio.run(main()))

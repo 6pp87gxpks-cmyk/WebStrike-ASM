@@ -1,13 +1,17 @@
-from ..registry import register, Phase
-from ..models import Finding, Severity, Confidence
+from ..models import Finding, Severity
+from ..registry import Phase, register
 from .base import Module
 
 PATHS = ["graphql", "graphiql", "api/graphql", "v1/graphql", "query", "gql"]
 
+
 @register
 class GraphQL(Module):
-    id = "graphql"; name = "GraphQL"; phase = Phase.ANALYSIS
-    profiles = {"balanced", "danger"}; kinds = {"domain", "url"}
+    id = "graphql"
+    name = "GraphQL"
+    phase = Phase.ANALYSIS
+    profiles = {"balanced", "danger"}
+    kinds = {"domain", "url"}
 
     async def run(self, ctx):
         base = ctx.base_url
@@ -30,13 +34,18 @@ class GraphQL(Module):
                 ):
                     is_gql = True
                 elif r.status_code == 200 and (
-                    "graphiql" in body_lower or "graphql-playground" in body_lower or "apollo-server" in body_lower
+                    "graphiql" in body_lower
+                    or "graphql-playground" in body_lower
+                    or "apollo-server" in body_lower
                 ):
                     is_gql = True
 
-            # Probe introspection via POST (standard) or GET params
-            intro = await ctx.http.probe(url, method="POST", json={"query": "{__schema{types{name}}}"},
-                                         headers={"Content-Type": "application/json"})
+            intro = await ctx.http.probe(
+                url,
+                method="POST",
+                json={"query": "{__schema{types{name}}}"},
+                headers={"Content-Type": "application/json"},
+            )
             if not intro or intro.status_code != 200 or '"__schema"' not in intro.text:
                 intro = await ctx.http.probe(url, params={"query": "{__schema{types{name}}}"})
 
@@ -53,5 +62,11 @@ class GraphQL(Module):
             if is_gql:
                 yield Finding(self.id, f"GraphQL endpoint: /{p}", Severity.MEDIUM, category="graphql", url=url)
                 if intro_ok:
-                    yield Finding(self.id, "GraphQL introspection ENABLED", Severity.HIGH, category="graphql",
-                                  url=url, evidence="schema dump possible")
+                    yield Finding(
+                        self.id,
+                        "GraphQL introspection ENABLED",
+                        Severity.HIGH,
+                        category="graphql",
+                        url=url,
+                        evidence="schema dump possible",
+                    )

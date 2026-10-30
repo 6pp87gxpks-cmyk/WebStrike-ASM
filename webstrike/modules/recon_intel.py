@@ -1,10 +1,14 @@
 from __future__ import annotations
+
 import asyncio
 import ipaddress
+
 import dns.resolver
-from ..registry import register, Phase
-from ..models import Finding, Severity, Confidence
+
+from ..models import Confidence, Finding, Severity
+from ..registry import Phase, register
 from .base import Module
+
 
 @register
 class GeoHostingIntel(Module):
@@ -18,7 +22,6 @@ class GeoHostingIntel(Module):
         host = ctx.domain
         ip = None
 
-        # Check if already an IP address
         try:
             ipaddress.ip_address(host)
             ip = host
@@ -43,7 +46,6 @@ class GeoHostingIntel(Module):
         except ValueError:
             is_public = True
 
-        # Query Geolocation & ASN information only for public/global IPs
         info = None
         if is_public:
             try:
@@ -64,7 +66,7 @@ class GeoHostingIntel(Module):
                 Severity.INFO,
                 category="infra",
                 target=host,
-                evidence=f"Resolved {host} -> {ip}"
+                evidence=f"Resolved {host} -> {ip}",
             )
             return
 
@@ -75,7 +77,6 @@ class GeoHostingIntel(Module):
         lat = info.get("lat")
         lon = info.get("lon")
 
-        # Remember geo metadata in state
         ctx.state["geo"] = {
             "ip": ip,
             "country": country,
@@ -86,7 +87,6 @@ class GeoHostingIntel(Module):
             "lon": lon,
         }
 
-        # 1. Location Finding
         yield Finding(
             self.id,
             f"Server Location: {city}, {country}",
@@ -94,10 +94,9 @@ class GeoHostingIntel(Module):
             Confidence.CERTAIN,
             category="infra",
             target=host,
-            evidence=f"IP: {ip} | Coordinates: {lat}, {lon} ({info.get('timezone', '')})"
+            evidence=f"IP: {ip} | Coordinates: {lat}, {lon} ({info.get('timezone', '')})",
         )
 
-        # 2. ISP & ASN Finding
         yield Finding(
             self.id,
             f"Hosting Provider: {org}",
@@ -105,10 +104,9 @@ class GeoHostingIntel(Module):
             Confidence.CERTAIN,
             category="infra",
             target=host,
-            evidence=f"ASN: {asn} | IP: {ip}"
+            evidence=f"ASN: {asn} | IP: {ip}",
         )
 
-        # 3. Cloud / CDN / WAF Detection
         lower_org = (org + " " + asn).lower()
         cdn_tag = None
         if "cloudflare" in lower_org:
@@ -138,5 +136,5 @@ class GeoHostingIntel(Module):
                 Confidence.CERTAIN,
                 category="infra",
                 target=host,
-                evidence=f"Detected via ASN ({asn}) and ISP ({org})"
+                evidence=f"Detected via ASN ({asn}) and ISP ({org})",
             )

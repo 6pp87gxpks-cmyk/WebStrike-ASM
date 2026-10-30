@@ -1,5 +1,5 @@
-"""Scope control: which targets this WebStrike instance is allowed to scan."""
 from __future__ import annotations
+
 import ipaddress
 import re
 from typing import Dict, List, Optional
@@ -7,7 +7,9 @@ from urllib.parse import urlparse
 
 DEFAULT_SCOPE: Dict = {"enforce": False, "domains": []}
 
-_HOST_RE = re.compile(r"^(?:\*\.)?[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$")
+_HOST_RE = re.compile(
+    r"^(?:\*\.)?[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$"
+)
 
 
 def target_host(target: str) -> str:
@@ -27,7 +29,6 @@ def target_host(target: str) -> str:
 
 
 def normalize_entry(entry: str) -> Optional[str]:
-    """Accepts 'example.com', '*.example.com', 'https://example.com/x', IPs or CIDRs."""
     e = (entry or "").strip().lower()
     if not e:
         return None
@@ -53,8 +54,6 @@ def normalize_list(entries: List[str]) -> List[str]:
 
 
 def host_in_scope(host: str, allowed: List[str]) -> bool:
-    """'example.com' allows example.com and all its subdomains; '*.example.com'
-    allows only subdomains; IP / CIDR entries match addresses."""
     host = (host or "").lower().rstrip(".")
     if not host:
         return False
