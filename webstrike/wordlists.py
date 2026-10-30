@@ -1,20 +1,20 @@
-COMMON_PATHS = """admin administrator login logout signin signup register account
+_RAW_COMMON_PATHS = """admin administrator login logout signin signup register account
 accounts dashboard panel cpanel wp-admin wp-login.php phpmyadmin adminer api api/v1
 api/v2 v1 v2 v3 internal private restricted dev stage staging test uat prod graphql
 graphiql swagger swagger-ui swagger.json openapi.json openapi.yaml api-docs docs
-redoc .well-known .well-known/security.txt robots.txt sitemap.xml humans.txt
-metrics health healthz status ping version info debug console actuator actuator/env
-actuator/health server-status server-info phpinfo.php test.php info.php config
-config.php settings settings.py web.config app.config .env .env.local .env.prod
-.git .git/HEAD .git/config .svn .svn/entries .hg .DS_Store backup backups bak old
+redoc .well-known metrics health healthz status ping version info debug console actuator
+actuator/env actuator/health server-status server-info phpinfo.php test.php info.php
+config config.php settings app.config backup backups bak old
 tmp temp cache upload uploads files file download downloads assets static public
 media images img css js scripts includes lib vendor node_modules dist build
 db database sql dump.sql backup.sql data.json export.json users user profile
 search results report reports logs log error errors mail email newsletter
 cron jobs task tasks queue worker service services ws wss socket websocket
 oauth oauth2 authorize token tokens sso saml callback redirect return
-robots.txt crossdomain.xml clientaccesspolicy.xml manifest.json favicon.ico
+crossdomain.xml clientaccesspolicy.xml manifest.json favicon.ico
 index index.html index.php index.jsp default.aspx home main""".split()
+
+COMMON_PATHS = list(dict.fromkeys(_RAW_COMMON_PATHS))
 
 BACKUP_EXT = [".bak", ".old", ".orig", ".save", ".swp", ".tmp", "~", ".zip", ".tar.gz", ".sql", ".txt", ".copy"]
 

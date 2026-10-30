@@ -8,6 +8,7 @@ WORKDIR /app
 # Install system dependencies (curl, certificates, git, fonts)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    git \
     ca-certificates \
     libnss3 \
     libnspr4 \

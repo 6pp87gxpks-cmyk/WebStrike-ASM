@@ -721,7 +721,7 @@ function renderScreens() {
   box.innerHTML = '';
   const shots = state.id ? state.findings.filter((f) => f.meta && f.meta.file) : [];
   if (!shots.length) {
-    box.innerHTML = '<div style="color:var(--muted);padding:14px;font-size:13px;">No screenshots captured yet (requires Danger profile + Screenshots module).</div>';
+    box.innerHTML = '<div style="color:var(--muted);padding:14px;font-size:13px;">No screenshots captured yet (requires Balanced or Danger profile + Host Screenshots module).</div>';
     return;
   }
   shots.forEach((f) => {

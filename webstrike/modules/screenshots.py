@@ -6,8 +6,9 @@ from .base import Module
 @register
 class Screenshots(Module):
     id = "screenshots"; name = "Host Screenshots"; phase = Phase.ENRICH
-    profiles = {"balanced", "danger"}; kinds = {"domain", "url"}
+    profiles = {"balanced", "danger"}; kinds = {"domain", "url", "ip"}
     LIMIT = 25
+    WEB_PORTS = {80, 443, 3000, 8000, 8080, 8443, 8888}
 
     async def run(self, ctx):
         try:
@@ -16,13 +17,25 @@ class Screenshots(Module):
             yield Finding(self.id, "Playwright not installed", Severity.INFO, category="screens",
                           evidence="pip install playwright && playwright install chromium")
             return
-        target_netloc = urlparse(ctx.base_url).netloc
-        hosts = sorted(ctx.state.get("hosts", set()))
-        if not hosts and target_netloc:
-            hosts = [target_netloc]
-        elif not hosts:
-            hosts = [ctx.domain]
-        hosts = hosts[:self.LIMIT]
+        parsed_base = urlparse(ctx.base_url)
+        target_netloc = parsed_base.netloc or ctx.domain
+        base_port = parsed_base.port
+
+        candidates = []
+        if target_netloc:
+            candidates.append(target_netloc)
+        for h in sorted(ctx.state.get("hosts", set())):
+            if h in candidates:
+                continue
+            if ":" in h:
+                _, _, port_str = h.rpartition(":")
+                if port_str.isdigit():
+                    port_num = int(port_str)
+                    if port_num not in self.WEB_PORTS and port_num != base_port:
+                        continue
+            candidates.append(h)
+
+        hosts = candidates[:self.LIMIT]
         out = ctx.screens_dir
         out.mkdir(parents=True, exist_ok=True)
         try:

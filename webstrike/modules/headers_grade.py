@@ -38,8 +38,8 @@ class SecurityHeadersGrade(Module):
     async def run(self, ctx):
         base = ctx.base_url
         r = await ctx.http.probe(base)
-        if not r:
-            r = await ctx.http.probe(base.replace("https://", "http://"))
+        if not r and base.startswith("https://"):
+            r = await ctx.http.probe(base.replace("https://", "http://", 1))
         if not r:
             return
 

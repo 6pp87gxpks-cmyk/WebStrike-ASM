@@ -13,7 +13,7 @@ class Options:
     retries: int = 2
     proxy: Optional[str] = None
     verify_tls: bool = True
-    user_agent: str = "WebStrike/1.0 (+recon)"
+    user_agent: str = "WebStrike/1.1 (+recon)"
     cookies: dict = field(default_factory=dict)
     headers: dict = field(default_factory=dict)
     bearer: Optional[str] = None
