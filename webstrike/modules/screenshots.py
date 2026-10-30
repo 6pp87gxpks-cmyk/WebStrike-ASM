@@ -47,8 +47,14 @@ class Screenshots(Module):
                                   evidence=str(e)[:200])
                     return
                 for host in hosts:
-                    for scheme in ("https", "http"):
-                        url = f"{scheme}://{host}"
+                    if host.count(":") > 1 and not host.startswith("["):
+                        host_fmt = f"[{host}]"
+                    else:
+                        host_fmt = host
+                    _, _, port_part = host_fmt.rpartition(":")
+                    schemes = ("http", "https") if port_part in ("80", "3000", "8000", "8080", "8888") else ("https", "http")
+                    for scheme in schemes:
+                        url = f"{scheme}://{host_fmt}"
                         context = None
                         try:
                             context = await browser.new_context(

@@ -9,7 +9,7 @@ TEMPLATES = ['site:{t}', 'site:{t} -www', 'site:{t} filetype:pdf', 'site:{t} inu
 @register
 class Dorks(Module):
     id = "dorks"; name = "Google Dorks"; phase = Phase.ENRICH
-    profiles = {"passive", "balanced", "danger"}; kinds = {"domain", "url"}
+    profiles = {"passive", "balanced", "danger"}; kinds = {"domain"}
 
     async def run(self, ctx):
         for t in TEMPLATES:

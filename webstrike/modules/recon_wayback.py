@@ -7,12 +7,12 @@ from .base import Module
 @register
 class Wayback(Module):
     id = "wayback"; name = "Historical URLs"; phase = Phase.RECON
-    profiles = {"balanced", "danger"}; kinds = {"domain", "url"}
+    profiles = {"balanced", "danger"}; kinds = {"domain"}
 
     async def run(self, ctx):
         urls = set()
         for src in (
-            f"http://web.archive.org/cdx/search/cdx?url=*.{ctx.domain}/*&output=text&fl=original&collapse=urlkey&limit=5000",
+            f"https://web.archive.org/cdx/search/cdx?url=*.{ctx.domain}/*&output=text&fl=original&collapse=urlkey&limit=500",
             f"https://otx.alienvault.com/api/v1/indicators/domain/{ctx.domain}/url_list?limit=500",
         ):
             r = await ctx.http.probe(src)

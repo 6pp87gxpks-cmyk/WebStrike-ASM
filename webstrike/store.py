@@ -1,5 +1,5 @@
 from __future__ import annotations
-import hashlib, json, os, time
+import asyncio, hashlib, json, os, time
 from pathlib import Path
 import aiosqlite
 from .migrations import migrate
@@ -17,10 +17,13 @@ class Store:
     def __init__(self, path: Path = DB_PATH):
         self.path = Path(path)
         self._db = None
+        self._lock = asyncio.Lock()
 
     async def connect(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._db = await aiosqlite.connect(self.path)
+        await self._db.execute("PRAGMA journal_mode=WAL")
+        await self._db.execute("PRAGMA busy_timeout=5000")
         self.migration_log = await migrate(self._db, self.path)
         return self
 
@@ -43,41 +46,44 @@ class Store:
     async def set_setting(self, key: str, value) -> None:
         if not self._db:
             return
-        await self._db.execute(
-            "INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) "
-            "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-            (key, json.dumps(value), time.time()))
-        await self._db.commit()
+        async with self._lock:
+            await self._db.execute(
+                "INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+                (key, json.dumps(value), time.time()))
+            await self._db.commit()
 
     async def delete_scan(self, scan_id: str) -> bool:
         if not self._db:
             return False
-        try:
-            await self._db.execute("DELETE FROM scans WHERE id = ?", (scan_id,))
-            await self._db.execute("DELETE FROM findings WHERE scan_id = ?", (scan_id,))
-            await self._db.commit()
-            return True
-        except Exception:
-            return False
+        async with self._lock:
+            try:
+                await self._db.execute("DELETE FROM scans WHERE id = ?", (scan_id,))
+                await self._db.execute("DELETE FROM findings WHERE scan_id = ?", (scan_id,))
+                await self._db.commit()
+                return True
+            except Exception:
+                return False
 
     async def save_scan(self, engine):
         if not self._db:
             return
-        await self._db.execute(
-            "INSERT OR REPLACE INTO scans(id,target,profile,status,started,finished,stats)"
-            " VALUES(?,?,?,?,?,?,?)",
-            (engine.scan_id, engine.target, engine.opt.profile, engine.status,
-             engine.started, time.time(), json.dumps(engine.surface_stats())))
-        await self._db.execute("DELETE FROM findings WHERE scan_id=?", (engine.scan_id,))
-        rows = [(fingerprint(f), engine.scan_id, f.module, f.title,
-                 f.severity.value if hasattr(f.severity, "value") else str(f.severity),
-                 f.confidence.value if hasattr(f.confidence, "value") else str(f.confidence),
-                 f.category, f.target, f.url, (f.evidence or "")[:1000],
-                 json.dumps(f.meta, default=str), f.ts) for f in engine.findings]
-        await self._db.executemany(
-            "INSERT INTO findings(fp,scan_id,module,title,severity,confidence,category,"
-            "target,url,evidence,meta,ts) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", rows)
-        await self._db.commit()
+        async with self._lock:
+            await self._db.execute(
+                "INSERT OR REPLACE INTO scans(id,target,profile,status,started,finished,stats)"
+                " VALUES(?,?,?,?,?,?,?)",
+                (engine.scan_id, engine.target, engine.opt.profile, engine.status,
+                 engine.started, time.time(), json.dumps(engine.surface_stats())))
+            await self._db.execute("DELETE FROM findings WHERE scan_id=?", (engine.scan_id,))
+            rows = [(fingerprint(f), engine.scan_id, f.module, f.title,
+                     f.severity.value if hasattr(f.severity, "value") else str(f.severity),
+                     f.confidence.value if hasattr(f.confidence, "value") else str(f.confidence),
+                     f.category, f.target, f.url, (f.evidence or "")[:1000],
+                     json.dumps(f.meta, default=str), f.ts) for f in engine.findings]
+            await self._db.executemany(
+                "INSERT INTO findings(fp,scan_id,module,title,severity,confidence,category,"
+                "target,url,evidence,meta,ts) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+            await self._db.commit()
 
     async def list_scans(self, limit=100):
         if not self._db:
@@ -130,58 +136,59 @@ class Store:
         scans_restored = 0
         findings_restored = 0
 
-        for sc in scans:
-            if not isinstance(sc, dict) or not sc.get("id") or not sc.get("target"):
-                continue
-            sid = str(sc["id"])
-            await self._db.execute(
-                "INSERT OR REPLACE INTO scans(id,target,profile,status,started,finished,stats)"
-                " VALUES(?,?,?,?,?,?,?)",
-                (
-                    sid,
-                    str(sc.get("target", "")),
-                    str(sc.get("profile", "balanced")),
-                    str(sc.get("status", "done")),
-                    float(sc.get("started") or time.time()),
-                    float(sc.get("finished") or time.time()),
-                    json.dumps(sc.get("stats") or {}),
-                )
-            )
-            scans_restored += 1
-            f_list = findings_map.get(sid)
-            if isinstance(f_list, list):
-                await self._db.execute("DELETE FROM findings WHERE scan_id=?", (sid,))
-                rows = []
-                for f in f_list:
-                    if not isinstance(f, dict):
-                        continue
-                    mod = str(f.get("module", "unknown"))
-                    title = str(f.get("title", "Finding"))
-                    target_val = str(f.get("target") or "")
-                    url_val = str(f.get("url") or "")
-                    ev_val = str(f.get("evidence") or "")[:1000]
-                    fp_val = str(f.get("fp") or hashlib.sha1(f"{mod}|{title}|{url_val or target_val}|{ev_val[:200]}".encode()).hexdigest())
-                    rows.append((
-                        fp_val,
+        async with self._lock:
+            for sc in scans:
+                if not isinstance(sc, dict) or not sc.get("id") or not sc.get("target"):
+                    continue
+                sid = str(sc["id"])
+                await self._db.execute(
+                    "INSERT OR REPLACE INTO scans(id,target,profile,status,started,finished,stats)"
+                    " VALUES(?,?,?,?,?,?,?)",
+                    (
                         sid,
-                        mod,
-                        title,
-                        str(f.get("severity", "info")),
-                        str(f.get("confidence", "firm")),
-                        str(f.get("category", "general")),
-                        target_val,
-                        url_val,
-                        ev_val,
-                        json.dumps(f.get("meta") or {}, default=str),
-                        float(f.get("ts") or time.time()),
-                    ))
-                if rows:
-                    await self._db.executemany(
-                        "INSERT INTO findings(fp,scan_id,module,title,severity,confidence,category,"
-                        "target,url,evidence,meta,ts) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-                        rows
+                        str(sc.get("target", "")),
+                        str(sc.get("profile", "balanced")),
+                        str(sc.get("status", "done")),
+                        float(sc.get("started") or time.time()),
+                        float(sc.get("finished") or time.time()),
+                        json.dumps(sc.get("stats") or {}),
                     )
-                    findings_restored += len(rows)
+                )
+                scans_restored += 1
+                f_list = findings_map.get(sid)
+                if isinstance(f_list, list):
+                    await self._db.execute("DELETE FROM findings WHERE scan_id=?", (sid,))
+                    rows = []
+                    for f in f_list:
+                        if not isinstance(f, dict):
+                            continue
+                        mod = str(f.get("module", "unknown"))
+                        title = str(f.get("title", "Finding"))
+                        target_val = str(f.get("target") or "")
+                        url_val = str(f.get("url") or "")
+                        ev_val = str(f.get("evidence") or "")[:1000]
+                        fp_val = str(f.get("fp") or hashlib.sha1(f"{mod}|{title}|{url_val or target_val}|{ev_val[:200]}".encode()).hexdigest())
+                        rows.append((
+                            fp_val,
+                            sid,
+                            mod,
+                            title,
+                            str(f.get("severity", "info")),
+                            str(f.get("confidence", "firm")),
+                            str(f.get("category", "general")),
+                            target_val,
+                            url_val,
+                            ev_val,
+                            json.dumps(f.get("meta") or {}, default=str),
+                            float(f.get("ts") or time.time()),
+                        ))
+                    if rows:
+                        await self._db.executemany(
+                            "INSERT INTO findings(fp,scan_id,module,title,severity,confidence,category,"
+                            "target,url,evidence,meta,ts) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                            rows
+                        )
+                        findings_restored += len(rows)
 
-        await self._db.commit()
+            await self._db.commit()
         return {"scans_restored": scans_restored, "findings_restored": findings_restored}

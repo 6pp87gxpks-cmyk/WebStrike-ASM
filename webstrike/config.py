@@ -22,3 +22,11 @@ class Options:
     max_urls: int = 3000
     only_modules: Optional[List[str]] = None
     webhook_url: Optional[str] = None
+
+    def __post_init__(self):
+        if self.profile not in PROFILES:
+            self.profile = "balanced"
+        self.concurrency = max(1, min(200, int(self.concurrency or 30)))
+        self.timeout = max(1.0, float(self.timeout or 15.0))
+        self.rate = max(0.0, float(self.rate or 0.0))
+        self.retries = max(0, min(10, int(self.retries if self.retries is not None else 2)))

@@ -38,7 +38,8 @@ class AuditParams(Module):
 
         # Check HTTP to HTTPS enforcement
         if ctx.base_url.startswith("https://"):
-            http_url = "http://" + ctx.domain
+            dom_fmt = f"[{ctx.domain}]" if ":" in ctx.domain and not ctx.domain.startswith("[") else ctx.domain
+            http_url = "http://" + dom_fmt
             r_http = await ctx.http.probe(http_url, follow_redirects=False)
             if r_http and r_http.status_code == 200:
                 yield Finding(

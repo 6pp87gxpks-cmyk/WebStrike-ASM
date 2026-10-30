@@ -1,7 +1,7 @@
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 const state = { id: null, target: "", findings: [], surface: new Set(), endpoints: new Set(),
-                surfaceStats: null, newFps: new Set(), t0: 0, timer: null };
+                surfaceStats: null, newFps: new Set(), t0: 0, timer: null, ws: null };
 let profile = "balanced";
 let enabled = new Set();
 
@@ -374,7 +374,7 @@ async function loadHistory() {
 }
 
 async function loadPast(sid, target) {
-  if (state.timer) { clearInterval(state.timer); state.timer = null; }
+  reset();
   setStatus('done');
   let rows = [];
   let surfStats = null;
@@ -472,8 +472,10 @@ async function launch() {
     }, 500);
     const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
     const ws = new WebSocket(proto + location.host + '/ws/' + r.id);
+    state.ws = ws;
     ws.onmessage = (e) => handle(JSON.parse(e.data));
     ws.onclose = () => {
+      if (state.ws !== ws) return;
       if (state.timer) { clearInterval(state.timer); state.timer = null; }
       const curr = $('#status') ? $('#status').textContent : '';
       if (curr !== 'stopped') setStatus('done');
@@ -494,6 +496,15 @@ function setStatus(s) {
 }
 
 function reset() {
+  if (state.timer) { clearInterval(state.timer); state.timer = null; }
+  if (state.ws) {
+    try {
+      state.ws.onclose = null;
+      state.ws.onmessage = null;
+      state.ws.close();
+    } catch (e) {}
+    state.ws = null;
+  }
   state.findings = [];
   state.surface = new Set();
   state.endpoints = new Set();
@@ -509,6 +520,7 @@ function reset() {
 }
 
 function handle(ev) {
+  if (ev.scan_id && state.id && ev.scan_id !== state.id) return;
   const k = ev.kind;
   if (k === 'finding') { state.findings.push(ev.finding); render(); }
   else if (k === 'log') logLine(ev.message, ev.level);
@@ -553,7 +565,7 @@ function render() {
   const on = new Set($$('#sevchips button.on').map((b) => b.dataset.s));
   const list = state.findings
     .filter((f) => !on.size || on.has(f.severity))
-    .filter((f) => !q || (f.title + (f.url || '') + (f.target || '') + f.category)
+    .filter((f) => !q || (f.title + (f.url || '') + (f.target || '') + f.category + (f.evidence || '') + (f.module || '') + (f.severity || ''))
       .toLowerCase().includes(q))
     .sort((a, b) => (SEV[a.severity] ?? 9) - (SEV[b.severity] ?? 9));
 
@@ -650,7 +662,13 @@ function renderSurface() {
   }
   items.forEach((s) => {
     const a = document.createElement('a');
-    a.href = s.startsWith('http') ? s : 'https://' + s;
+    if (s.startsWith('http://') || s.startsWith('https://')) {
+      a.href = s;
+    } else if (/:(80|3000|8000|8080|8888)$/.test(s)) {
+      a.href = 'http://' + s;
+    } else {
+      a.href = 'https://' + s;
+    }
     a.target = '_blank';
     a.textContent = s;
     box.appendChild(a);
