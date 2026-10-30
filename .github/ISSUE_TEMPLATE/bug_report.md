@@ -1,24 +1,20 @@
 ---
-name: 🐛 Bug Report
-about: Report an issue or unexpected behavior during a scan
-title: "[BUG] "
+name: Bug Report
+about: Something broke or gave a false positive
+title: "[bug] "
 labels: bug
 assignees: ''
 ---
 
-### Describe the Bug
-A clear and concise description of what happened.
+**What happened?**
 
-### Steps to Reproduce
-1. Operating System (macOS / Windows / Linux / Docker):
-2. Scan Profile (`passive` / `balanced` / `danger`):
-3. Modules enabled:
-4. What error or behavior appeared:
 
-### Expected Behavior
-What you expected to happen.
+**Setup**
+- OS:
+- Profile (`passive` / `balanced` / `danger`):
+- Modules used:
 
-### Console / Terminal Logs (if any)
+**Logs / output (if any)**
 ```text
-Paste error output here
+
 ```

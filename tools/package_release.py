@@ -1,13 +1,6 @@
 #!/usr/bin/env python3
-"""Builds a clean, customer-ready release archive in dist/WebStrike-v<VERSION>.zip.
-
-Automatically excludes:
-  - .venv, __pycache__, .DS_Store, *.pyc
-  - Local database & artifacts (scans/*.db*, scans/artifacts/*)
-  - Developer-only files (tools/generate_license.py, apply_fixes.sh, selftest.log, Read this.txt, ROADMAP.md)
-"""
-from __future__ import annotations
 import pathlib
+import shutil
 import zipfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -38,7 +31,6 @@ def should_include(rel: pathlib.Path) -> bool:
 
 
 def build_release() -> pathlib.Path:
-    import shutil
     DIST_DIR.mkdir(parents=True, exist_ok=True)
     out_zip = DIST_DIR / f"WebStrike-v{VERSION}.zip"
     github_dir = ROOT.parent / "WebStrike-GitHub"
@@ -68,11 +60,12 @@ def build_release() -> pathlib.Path:
             dest_file.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, dest_file)
             count += 1
-        # Ensure empty scans/ directory placeholder exists in zip and GitHub folder
+
         zf.writestr(f"WebStrike-v{VERSION}/scans/.keep", "")
         keep_file = github_dir / "scans" / ".keep"
         keep_file.parent.mkdir(parents=True, exist_ok=True)
         keep_file.write_text("")
+
     print(f"[OK] Packaged {count} files -> {out_zip} ({out_zip.stat().st_size:,} bytes)")
     print(f"[OK] Prepared clean GitHub repository folder -> {github_dir}")
     return out_zip

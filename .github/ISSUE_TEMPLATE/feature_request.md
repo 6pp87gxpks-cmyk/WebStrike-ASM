@@ -1,13 +1,12 @@
 ---
-name: 🚀 Feature / Module Request
-about: Suggest a new security module or dashboard improvement
-title: "[FEATURE] "
+name: Feature Request
+about: Idea for a new module or UI change
+title: "[feature] "
 labels: enhancement
 assignees: ''
 ---
 
-### Summary
-What new module or feature would you like to see in WebStrike?
+**What would you like to add?**
 
-### Use Case / Why is this useful?
-Explain how this helps during reconnaissance or security auditing.
+
+**Notes / details**

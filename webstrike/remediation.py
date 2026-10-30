@@ -1,31 +1,28 @@
-"""Remediation & Hardening Knowledge Base for WebStrike findings."""
-from __future__ import annotations
-
 REMEDIATION_GUIDE = {
-    "exposure": "Remove sensitive configuration and VCS files from public web directories. Ensure .env, .git, and credentials are added to .gitignore and web server block rules.",
-    "secrets": "Immediately revoke and rotate the exposed API key or token. Audit access logs for unauthorized activity and store secrets securely in an environment variable manager or vault.",
-    "cors": "Avoid reflecting arbitrary 'Origin' headers with 'Access-Control-Allow-Credentials: true'. Explicitly whitelist trusted origins only.",
-    "graphql": "Disable GraphQL introspection in production environments. Implement rate limiting and query complexity limits to prevent resource exhaustion.",
-    "api": "Restrict public access to internal OpenAPI and Swagger UI documentation, or place documentation behind authentication.",
-    "cookies": "Set the 'HttpOnly' flag to protect cookies from XSS theft, 'Secure' to enforce HTTPS transmission, and 'SameSite=Lax' or 'Strict' to mitigate CSRF.",
-    "headers": "Implement missing HTTP security headers: Strict-Transport-Security (HSTS), Content-Security-Policy (CSP), X-Frame-Options (DENY/SAMEORIGIN), and X-Content-Type-Options (nosniff).",
-    "network": "Restrict database and management ports (e.g. 6379, 27017, 3306, 9200) from listening on public interfaces. Bind to 127.0.0.1 or protect behind a VPN and firewall.",
-    "cloud": "Configure cloud storage access control policies (S3 bucket policy, GCP IAM, Azure ACL) to prevent anonymous/public read or write access.",
-    "takeover": "Remove dangling CNAME DNS records pointing to decommissioned third-party cloud services (AWS, GitHub, Azure, Heroku).",
-    "discovery": "Review publicly exposed administrative endpoints. Enforce multi-factor authentication (MFA) and IP whitelisting.",
-    "vuln": "Validate, sanitize, and context-encode all user input. For redirects, use an explicit whitelist of allowed local paths. For database interactions, strictly use parameterized queries.",
-    "crypto": "Enforce HTTPS across all assets. Enable HSTS with 'max-age=31536000; includeSubDomains; preload' and configure automatic port 80 to 443 redirects.",
-    "infra": "Protect server origin IP behind an enterprise CDN/WAF. Ensure no internal hostnames or direct IP links leak in DNS or response headers.",
-    "js": "Disable production JavaScript source maps (.js.map) in your build pipeline so internal source code and comments cannot be reconstructed by attackers.",
-    "endpoints": "Audit discovered API and application routes to ensure proper authentication, authorization, and rate-limiting controls are enforced.",
-    "params": "Ensure all URL query and form parameters undergo strict server-side type validation, length limits, and context-aware output encoding.",
-    "surface": "Review exposed forms, file upload handlers, and public entry points. Enforce HTTPS on all authentication forms and restrict uploaded file types and storage permissions.",
-    "http": "Suppress verbose Server, X-Powered-By, and framework version headers in production web server configurations to hinder version-targeted exploits.",
-    "tech": "Keep detected CMS, frameworks, and frontend libraries updated to their latest patched versions and remove unused plugins or debug endpoints.",
-    "dns": "Review DNS records (SPF, DMARC, DKIM, CAA) to prevent email spoofing and unauthorized certificate issuance.",
-    "whois": "Enable WHOIS domain privacy/redaction and registrar lock to protect administrative contact details and prevent unauthorized domain transfers.",
-    "dorks": "Audit search-indexed assets and public code repositories to ensure no confidential documents, backups, or credentials are indexed.",
-    "screens": "Review visual snapshots of exposed hosts and staging interfaces to ensure no internal dashboards or debug consoles are publicly reachable.",
+    "exposure": "Delete .env, .git, and backup archives from the web root, and block dotfiles at the Nginx/Apache level.",
+    "secrets": "Rotate the leaked key right away, check provider logs for usage, and move secrets into env vars instead of frontend code.",
+    "cors": "Don't echo back arbitrary Origin headers when Access-Control-Allow-Credentials is true. Match against a fixed allowlist.",
+    "graphql": "Turn off schema introspection in production builds and add depth/rate limits to GraphQL queries.",
+    "api": "Put Swagger / OpenAPI docs behind auth or restrict them to internal network ranges.",
+    "cookies": "Add Secure, HttpOnly, and SameSite=Lax (or Strict) flags on session cookies.",
+    "headers": "Add HSTS, Content-Security-Policy, X-Frame-Options (DENY/SAMEORIGIN), and X-Content-Type-Options: nosniff.",
+    "network": "Bind internal services (Redis, Mongo, MySQL, Elasticsearch) to localhost or block their ports in the firewall.",
+    "cloud": "Lock down bucket ACLs/policies so anonymous users can't list or read objects.",
+    "takeover": "Delete the dangling CNAME record or reclaim the external app/bucket name it points to.",
+    "discovery": "Put admin panels and debug routes behind authentication, MFA, or VPN/IP allowlists.",
+    "vuln": "Escape reflected parameters before rendering HTML, use parameterized SQL queries, and only allow relative URLs on redirects.",
+    "crypto": "Force 301 redirects from HTTP to HTTPS and enable HSTS with a long max-age.",
+    "infra": "Put origin IPs behind a reverse proxy or CDN/WAF and drop direct A records pointing to the backend host.",
+    "js": "Strip .js.map sourcemaps from production builds so raw source files aren't downloadable.",
+    "endpoints": "Check that all discovered API routes require auth and proper role checks.",
+    "params": "Validate parameter types on the server and escape any values echoed back in responses.",
+    "surface": "Make sure login forms post over HTTPS and restrict allowed extensions/MIME types on file upload forms.",
+    "http": "Turn off Server and X-Powered-By version banners in your web server config (`server_tokens off` in Nginx).",
+    "tech": "Keep CMS cores, plugins, and JS libraries patched; remove unused plugins.",
+    "dns": "Set up SPF, DMARC (`p=quarantine` or `p=reject`), DKIM, and CAA records on the domain.",
+    "whois": "Turn on registrar lock and WHOIS privacy so admin contacts aren't public.",
+    "dorks": "Remove sensitive PDFs, SQL dumps, or logs that search engines have indexed.",
+    "screens": "Check captured host screenshots to make sure staging apps or default install pages aren't left open.",
 }
 
 OWASP_MAPPING = {
@@ -55,6 +52,7 @@ OWASP_MAPPING = {
     "infra": ("A05:2021", "Security Misconfiguration"),
 }
 
+
 def get_remediation(category: str, title: str = "") -> str:
     cat = (category or "").lower()
     if cat in REMEDIATION_GUIDE:
@@ -62,7 +60,8 @@ def get_remediation(category: str, title: str = "") -> str:
     for key, advice in REMEDIATION_GUIDE.items():
         if key in title.lower():
             return advice
-    return "Review the asset configuration and follow OWASP security best practices to harden this endpoint."
+    return "Check the endpoint config and restrict unnecessary public access."
+
 
 def get_owasp_tag(category: str, title: str = "") -> tuple[str, str]:
     cat = (category or "").lower()

@@ -1,6 +1,5 @@
-from __future__ import annotations
-from ..registry import register, Phase
-from ..models import Finding, Severity, Confidence
+from ..models import Confidence, Finding, Severity
+from ..registry import Phase, register
 from .base import Module
 
 WAF_SIGNATURES = [
@@ -33,12 +32,14 @@ class WAFDetector(Module):
             return
 
         hdrs = {k.lower(): v.lower() for k, v in r.headers.items()}
-        server_str = " ".join([
-            hdrs.get("server", ""),
-            hdrs.get("via", ""),
-            hdrs.get("x-cdn", ""),
-            hdrs.get("x-powered-by", ""),
-        ])
+        server_str = " ".join(
+            [
+                hdrs.get("server", ""),
+                hdrs.get("via", ""),
+                hdrs.get("x-cdn", ""),
+                hdrs.get("x-powered-by", ""),
+            ]
+        )
         cookie_names = [c.name.lower() for c in r.cookies.jar]
         set_cookie_raw = hdrs.get("set-cookie", "")
 
@@ -67,7 +68,7 @@ class WAFDetector(Module):
                     category="infra",
                     url=str(r.url),
                     evidence=f"Detected via {evidence_str}",
-                    meta={"waf": waf_name, "detected": True}
+                    meta={"waf": waf_name, "detected": True},
                 )
         else:
             yield Finding(
@@ -77,6 +78,6 @@ class WAFDetector(Module):
                 Confidence.TENTATIVE,
                 category="infra",
                 url=str(r.url),
-                evidence="Standard HTTP response headers/cookies showed no known WAF/CDN shield signatures",
-                meta={"waf": None, "detected": False}
+                evidence="No known WAF/CDN headers or cookies seen on initial response",
+                meta={"waf": None, "detected": False},
             )
