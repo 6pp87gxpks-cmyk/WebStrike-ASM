@@ -126,13 +126,23 @@ class Store:
             return {"scans_restored": 0, "findings_restored": 0}
         scope = payload.get("scope")
         if isinstance(scope, dict):
+            raw_domains = scope.get("domains")
+            domains_list = [str(d) for d in raw_domains] if isinstance(raw_domains, list) else []
             await self.set_setting("scope", {
                 "enforce": bool(scope.get("enforce", False)),
-                "domains": list(scope.get("domains") or [])
+                "domains": domains_list,
             })
 
-        scans = payload.get("scans") or []
-        findings_map = payload.get("findings") or {}
+        def _safe_float(val, default: float) -> float:
+            try:
+                return float(val) if val is not None else default
+            except (TypeError, ValueError):
+                return default
+
+        raw_scans = payload.get("scans")
+        scans = raw_scans if isinstance(raw_scans, list) else []
+        raw_fmap = payload.get("findings")
+        findings_map = raw_fmap if isinstance(raw_fmap, dict) else {}
         scans_restored = 0
         findings_restored = 0
 
@@ -141,6 +151,9 @@ class Store:
                 if not isinstance(sc, dict) or not sc.get("id") or not sc.get("target"):
                     continue
                 sid = str(sc["id"])
+                raw_stats = sc.get("stats")
+                stats_dict = raw_stats if isinstance(raw_stats, dict) else {}
+                now = time.time()
                 await self._db.execute(
                     "INSERT OR REPLACE INTO scans(id,target,profile,status,started,finished,stats)"
                     " VALUES(?,?,?,?,?,?,?)",
@@ -149,13 +162,15 @@ class Store:
                         str(sc.get("target", "")),
                         str(sc.get("profile", "balanced")),
                         str(sc.get("status", "done")),
-                        float(sc.get("started") or time.time()),
-                        float(sc.get("finished") or time.time()),
-                        json.dumps(sc.get("stats") or {}),
+                        _safe_float(sc.get("started"), now),
+                        _safe_float(sc.get("finished"), now),
+                        json.dumps(stats_dict),
                     )
                 )
                 scans_restored += 1
                 f_list = findings_map.get(sid)
+                if not isinstance(f_list, list) and isinstance(sc.get("findings"), list):
+                    f_list = sc.get("findings")
                 if isinstance(f_list, list):
                     await self._db.execute("DELETE FROM findings WHERE scan_id=?", (sid,))
                     rows = []
@@ -168,6 +183,8 @@ class Store:
                         url_val = str(f.get("url") or "")
                         ev_val = str(f.get("evidence") or "")[:1000]
                         fp_val = str(f.get("fp") or hashlib.sha1(f"{mod}|{title}|{url_val or target_val}|{ev_val[:200]}".encode()).hexdigest())
+                        raw_meta = f.get("meta")
+                        meta_dict = raw_meta if isinstance(raw_meta, dict) else {}
                         rows.append((
                             fp_val,
                             sid,
@@ -179,8 +196,8 @@ class Store:
                             target_val,
                             url_val,
                             ev_val,
-                            json.dumps(f.get("meta") or {}, default=str),
-                            float(f.get("ts") or time.time()),
+                            json.dumps(meta_dict, default=str),
+                            _safe_float(f.get("ts"), now),
                         ))
                     if rows:
                         await self._db.executemany(
